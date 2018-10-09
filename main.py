@@ -11,7 +11,7 @@ loop = asyncio.get_event_loop()
 
 def main():
     # get all the chats from the folder
-    chats = folder_traversal.traverse_folder("C:\\Users\\zsemb\\Downloads\\facebook-zsemberi3004\\messages")
+    chats = folder_traversal.traverse_folder("/home/zsdaniel/Downloads/facebook-zsemberi3004/messages")
 
     # choose one via text input
     # then we add all the data from the message.json file

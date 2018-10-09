@@ -83,6 +83,19 @@ def decode_message(dct, msg=None) -> data.Message:
     msg.content = dct.get("content", "")
     msg.msg_type = dct.get("type", "unknown")
 
+    # special types may not be available
+    for photo in dct.get("photos", []):
+        msg.photos_add(photo.get("uri", "Photo not found"))
+    for gif in dct.get("gifs", []):
+        msg.gifs_add(gif.get("uri", "GIF not found"))
+    share = dct.get("share", {})
+    for key in share.keys():
+        msg.shares_add(key + ": " + share[key])
+
+    # add reactions as well
+    for reaction in dct.get("reactions", []):
+        msg.reactions_add(decode_reaction(reaction))
+
     return msg
 
 
@@ -100,9 +113,29 @@ def decode_participant(dct, participant=None) -> data.Participant:
     if participant is None:
         participant = data.Participant()
 
-    participant.name = dct.get("name", "uknown")
+    participant.name = dct.get("name", "unknown")
 
     return participant
+
+
+def decode_reactions(list):
+    return [decode_reaction(dct) for dct in list]
+
+
+def decode_reaction(dct, reaction=None) -> data.Reaction:
+    """
+    Decodes to a Reaction object from a JSON object
+    :param dct: The dictionary returned by JSON decoder
+    :param reaction: If there is a Reaction object to which we want to override the attributes
+    :return: The new Reaction object
+    """
+    if reaction is None:
+        reaction = data.Reaction()
+
+    reaction.actor = dct.get("actor", "unknown")
+    reaction.reaction = dct.get("reaction", "unknown")
+
+    return reaction
 
 
 def _fix_keys_and_values(dict):

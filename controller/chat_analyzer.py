@@ -5,15 +5,11 @@ import datetime
 def avg_character_count(chat: data.Chat) -> {str, float}:
     """
     This function returns how many characters each participant uses on average in each message
+    It also omits the special messages which contain media
     """
-    # TODO: take special messages into account
 
     output: {str, float} = {}
     msg_count = message_count(chat)
-
-    # default msg count
-    for participant in chat.participants:
-        output[participant.name] = 0
 
     # count characters
     for msg in chat.messages:
@@ -24,6 +20,15 @@ def avg_character_count(chat: data.Chat) -> {str, float}:
         output[participant.name] /= msg_count[participant.name]
 
     return output
+
+
+def character_count(chat: data.Chat) -> {str, int}:
+
+    output: {str, int} = {}
+
+    # default char count
+    for participant in chat.participants:
+        output[participant.name] = 0
 
 
 def response_count(chat: data.Chat) -> {str, int}:

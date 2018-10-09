@@ -35,9 +35,10 @@ def _process_command(cmd_str: str, chat: data.Chat):
         header = [""]
         msg_counts_text = ["Message counts"]
         response_count_text = ["Response count"]
-        avg_resp_time_day_text = ["Avg. response time (🚫🌃)"]
-        avg_resp_time_text = ["Avg. response time (🌃)"]
+        avg_resp_time_day_text = ["Avg. response time (no overnight)"]
+        avg_resp_time_text = ["Avg. response time (with overnight🌃)"]
         avg_char_count_text = ["Avg. character count"]
+        char_count_text = ["Character count"]
 
         for participant in msg_counts.keys():
             header.append(participant)
