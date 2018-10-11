@@ -23,10 +23,9 @@ def main():
 
 def got_chosen_chat(future):
     chat: data.Chat = future.result()
+    loop.stop()
 
     cd_tinp.start_command_line(chat)
-
-    loop.stop()
 
 
 main()

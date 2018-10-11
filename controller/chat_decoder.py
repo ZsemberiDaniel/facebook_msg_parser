@@ -56,7 +56,7 @@ def decode_chat(dct, chat=None) -> data.Chat:
     msgs = decode_messages(dct.get("messages", []))
 
     for msg in msgs:
-        chat.messages.add(msg)
+        chat.add_message(msg)
 
     # rename with a better name
     chat.name = dct.get("title", chat.name)
