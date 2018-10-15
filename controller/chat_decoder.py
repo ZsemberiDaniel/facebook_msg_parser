@@ -1,7 +1,6 @@
 import json
 import ftfy
 import os.path
-import io
 from data import data
 
 
@@ -29,12 +28,6 @@ async def add_all_data(chat) -> data.Chat:
         _fix_keys_and_values(msg)
 
     chat = decode_chat(raw_json, chat)
-
-    """
-    with io.open("asd.txt", "w+", encoding="utf-8") as output:
-        for msg in chat.messages:
-            output.write(str(msg.date.year) + ":" + str(msg.date.month) + ":" + str(msg.date.day) + " - " + msg.sender + ": " + msg.content + "\n")
-    """
 
     return chat
 

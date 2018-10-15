@@ -7,6 +7,7 @@ import asyncio
 
 
 loop = asyncio.get_event_loop()
+run = True
 
 
 def main():
@@ -15,17 +16,18 @@ def main():
 
     # choose one via text input
     # then we add all the data from the message.json file
-    chat_task = loop.create_task(chat_decoder.add_all_data(cc_tinp.choose_chat(chats)))
-    chat_task.add_done_callback(got_chosen_chat)
+    while run:
+        chat_task = loop.create_task(chat_decoder.add_all_data(cc_tinp.choose_chat(chats)))
+        chat_task.add_done_callback(got_chosen_chat)
 
-    loop.run_forever()
+        loop.run_forever()
 
 
 def got_chosen_chat(future):
     chat: data.Chat = future.result()
     loop.stop()
 
-    cd_tinp.start_command_line(chat)
+    run = cd_tinp.start_command_line(chat)
 
 
 main()

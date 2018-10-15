@@ -1,6 +1,97 @@
 from data import data
 import datetime
 import re
+import emoji
+
+
+def most_used_emojis(chat: data.Chat, top: int=1) -> {str: [(str, int)]}:
+    """
+    Returns the most used emojis for each participant. The number indicates how many emojis it
+    returns.
+    """
+    output: {str, [str]} = {}
+    emoji_grouped = emoji_each_count(chat)
+
+    for participant in emoji_grouped.keys():
+        # set default value
+        output[participant] = []
+
+        # sort the group by emoji count
+        sorted_emojis = sorted(emoji_grouped[participant], key=lambda t: t[1], reverse=True)
+
+        for i in range(min(top, len(sorted_emojis))):
+                output[participant].append(sorted_emojis[i])
+
+    return output
+
+
+def emoji_each_count(chat: data.Chat) -> {str: [(str, int)]}:
+    """
+    This function returns for each participant the grouped emoji count that means if the participant sent
+    5 of the crying emoji the map will have {participant_name: [..., (:crying:, 5), ...]
+    """
+    output: {str: [(str, int)]} = {}
+    all_emoji = emojis(chat)
+
+    for participant in all_emoji.keys():
+        # add default value
+        output[participant] = []
+
+        # first we sort the emojis then we can count how many there are of each easily
+        # by counting the ones next to each other
+        sorted_emojis = sorted(all_emoji[participant])
+
+        if len(sorted_emojis) <= 0:
+            continue
+
+        # in these we'll count how many there are of the currently counted
+        # all of them should be next to each other
+        curr_emoji = sorted_emojis[0]
+        curr_count = 1
+        for i in range(1, len(sorted_emojis)):
+            # there is still more of the one currently being counter
+            if sorted_emojis[i] == curr_emoji:
+                curr_count += 1
+            else:  # a new emoji has begun appearing
+                # store the old one
+                output[participant].append((curr_emoji, curr_count))
+
+                # set the new one to be the current one
+                curr_emoji = sorted_emojis[i]
+                curr_count = 1
+
+    return output
+
+
+def emoji_count(chat: data.Chat) -> {str: int}:
+    """
+    Returns how many emojis each participant sent in the chat
+    """
+    output: {str, int} = {}
+    all_emojis = emojis(chat)
+
+    for participant in all_emojis.keys():
+        output[participant] = len(all_emojis[participant])
+
+    return output
+
+
+def emojis(chat: data.Chat) -> {str: [str]}:
+    """
+    Returns list of emojis in chronological order for each participant
+    """
+    output: {str: [str]} = {}
+
+    # set default values
+    for participant in chat.participants:
+        output[participant.name] = []
+
+    # collect them
+    for msg in chat.messages:
+        # check whether a character is in the list of emojis stored in the emoji library
+        output[msg.sender] += filter(lambda char: char in emoji.UNICODE_EMOJI.keys(), msg.content)
+
+    return output
 
 
 def get_from_to_date(chat: data.Chat, from_date: datetime.date, to_date: datetime.date) -> [data.Message]:
@@ -109,6 +200,9 @@ def character_by_day(chat: data.Chat) -> [(datetime.date, {str: int})]:
 
             # new date
             curr_date = (msgordered[i].date.date(), {msgordered[i].sender: msgordered[i].character_count()})
+
+    # add last
+    output.append(curr_date)
 
     return output
 
@@ -273,6 +367,9 @@ def _response_times_sum_by_day(chat: data.Chat) -> [(datetime.date, {str: (int, 
 
         last_response = response
 
+    # add last
+    output.append(data_for_day)
+
     return output
 
 
@@ -280,7 +377,7 @@ def message_by_day(chat: data.Chat) -> [(datetime.date, {str: int})]:
     """
     This function returns day by day how many messages were exchanged from each participant
     :param chat: The chat to analyze
-    :return: A list of tuples of dates and count data sotred in order
+    :return: A list of tuples of dates and count data stored in order
     """
 
     output: [(datetime.date, {str, int})] = []
@@ -297,6 +394,9 @@ def message_by_day(chat: data.Chat) -> [(datetime.date, {str: int})]:
         else:  # we got to at least next day
             output.append(counter_for_day)  # add the last day to output
             counter_for_day = (msgordered[i].date.date(), {msgordered[i].sender: 1})  # make this day the current one
+
+    # add last one
+    output.append(counter_for_day)
 
     return output
 
@@ -340,3 +440,12 @@ def active_dates(chat: data.Chat) -> [datetime.date]:
             curr_date = new_date
 
     return output
+
+
+def date_between(chat: data.Chat) -> (datetime.datetime, datetime.datetime):
+    """
+    Returns between what dates the conversation went on
+    """
+    msgordered: [data.Message] = chat.messages
+
+    return msgordered[0].date, msgordered[len(msgordered) - 1].date

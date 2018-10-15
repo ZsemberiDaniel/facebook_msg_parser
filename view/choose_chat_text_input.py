@@ -6,7 +6,7 @@ from data import data
 
 
 _choose_command = "c"
-_help_command   = "help"
+_help_command = "help"
 _filter_command = "f"
 
 
@@ -55,6 +55,11 @@ def _process_command(command, chats) -> Optional[data.Chat]:
     elif commands[0] == _choose_command:
         # get all that contain this string
         found = [c for c in chats if commands[1] in c.name]
+
+        # if there was an exact match then choose that
+        for chat in found:
+            if chat.name == commands[1]:
+                return chat
 
         if len(found) > 1:
             print("There are more than 1 names found with " + commands[1])

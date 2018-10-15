@@ -22,7 +22,7 @@ def traverse_folder(folder_path):
         path_to_media = None
 
         # not last folder  and  the condition described above applies
-        if at != len(folders_with_data) - 1 and msg_folder[0].lower() == folders_with_data[at + 1][0].lower():
+        if at != len(folders_with_data) - 1 and msg_folder[0] == folders_with_data[at + 1][0]:
             path_to_media = os.path.join(folder_path, folders_with_data[at + 1][1])
 
             at += 2  # skip the media folder
