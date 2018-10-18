@@ -3,6 +3,7 @@ from controller import chat_decoder
 from view import choose_chat_text_input as cc_tinp
 from view import chat_data_text_input as cd_tinp
 from data import data
+from data import facebook_emojis
 import asyncio
 
 
@@ -12,7 +13,7 @@ run = True
 
 def main():
     # get all the chats from the folder
-    chats = folder_traversal.traverse_folder("/home/zsdaniel/Downloads/facebook-zsemberi3004/messages")
+    chats = folder_traversal.traverse_folder("/home/zsdaniel/Downloads/messages")
 
     # choose one via text input
     # then we add all the data from the message.json file

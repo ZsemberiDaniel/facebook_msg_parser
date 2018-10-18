@@ -11,6 +11,7 @@ command_help = ["help", "h"]
 command_basic_data = ["basic", "b"]
 command_message_count = ["count"]
 command_chart = ["chart", "c"]
+command_emojis = ["emoji", "e"]
 commands_filter = ["filter", "f"]
 command_search = ["search", "s"]
 command_write = ["write", "w"]
@@ -36,25 +37,37 @@ def _process_command(cmd_str: str, chat: data.Chat) -> bool:
         # split by whitespaces
         commands = re.split(r"\s+", curr_command.strip())
 
+        # search
         if commands[0] in command_search:
             local_chat = search(local_chat, commands[1:-1], commands[-1])
+        # filter
         elif commands[0] in commands_filter:
             local_chat = filter_chat(local_chat, commands[1:])
+        # msg count
         elif commands[0] in command_message_count:
             print_message_count(local_chat, commands[1:])
             return True
-        elif commands[0] in command_chart:
-            chart(local_chat)
+        # emoji filtering
+        elif commands[0] in command_emojis:
+
             return True
+        # charting
+        elif commands[0] in command_chart:
+            chart(local_chat, commands[1:])
+            return True
+        # help
         elif commands[0] in command_help:
             print_help()
             return True
+        # write
         elif commands[0] in command_write:
             print_write(local_chat, commands[1:])
             return True
+        # basic
         elif commands[0] in command_basic_data:
             print_basic(local_chat)
             return True
+        # quit
         elif commands[0] in command_quit:
             return False
         else:
@@ -64,8 +77,13 @@ def _process_command(cmd_str: str, chat: data.Chat) -> bool:
     return True
 
 
-def chart(chat: data.Chat):
-    data_visualizer.plot_activity_msg(chat)
+def chart(chat: data.Chat, switches: [str]):
+    if len(switches) == 0 or "-m" in switches:
+        data_visualizer.plot_activity_msg(chat)
+    if len(switches) == 0 or "-c" in switches:
+        data_visualizer.plot_activity_char(chat)
+    if len(switches) == 0 or "-e" in switches:
+        data_visualizer.plot_emojis_per_participant(chat)
 
 
 def print_message_count(chat: data.Chat, switches: [str]):
@@ -169,7 +187,6 @@ def search(chat: data.Chat, switches: [str], word_or_regex: str) -> data.Chat:
 def print_help():
     print("Get basic information about your chat with \t basic")
 
-    print("\n")
     print("Write out how many messages there are with \t count")
     print("\t You can specify to write out separately for each participant with \t -p")
 
@@ -179,18 +196,21 @@ def print_help():
     print("\t\t You can omit the from date with '_'. If no from date is given then it will be written out from" +
           "the start of conversation.")
 
-    print("\n")
     print("Search in messages with \t find [switches] [what to find]")
     print("\t add a keyword with (default behaviour) \t -w")
     print("\t match whole world in -w mode \t\t -h")
     print("\t add a regex with \t\t -r")
     print("\t ignore cases with \t\t -i")
 
-    print("\n")
     print("Write out messages with \t write [switches]")
     print("\t You can write to a file with \t -f [filename]")
 
-    print("\n")
+    print("Make charts with \t chart")
+    print("\t You can omit all the switches to get every chart.")
+    print("\t Chart message count with \t -m")
+    print("\t Chart character count with \t -c")
+    print("\t Chart emojis with \t -c")
+
     print("Quit with \t quit")
 
 
@@ -202,8 +222,8 @@ def print_basic(chat: data.Chat):
     avg_response_time = chat_analyzer.avg_response_time(chat)
     sum_character_count = chat_analyzer.character_count(chat)
     avg_character_count = chat_analyzer.avg_character_count(chat)
-    emojis_count = chat_analyzer.emoji_count(chat)
-    most_used_emoji = chat_analyzer.most_used_emojis(chat)
+    emojis_count = chat_analyzer.emoji_count_per_participant(chat)
+    most_used_emoji = chat_analyzer.most_used_emojis_per_participant(chat)
 
     table = tt.Texttable()
     header = [""]
@@ -221,7 +241,7 @@ def print_basic(chat: data.Chat):
         msg_counts_text.append(msg_counts.get(participant, "-"))
         response_count_text.append(response_count.get(participant, "-"))
         avg_resp_time_day_text.append(str(avg_response_time_day.get(participant, 0) / 60) + " min")
-        avg_resp_time_text.append(str(avg_response_time[participant].get(participant, "-") / 60) + " min")
+        avg_resp_time_text.append(str(avg_response_time.get(participant, 0) / 60) + " min")
         char_count_text.append(sum_character_count.get(participant, "-"))
         avg_char_count_text.append(avg_character_count.get(participant, "-"))
         emoji_count_text.append(emojis_count.get(participant, "-"))

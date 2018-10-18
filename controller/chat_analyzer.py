@@ -1,16 +1,27 @@
 from data import data
+from data import facebook_emojis
 import datetime
 import re
 import emoji
 
 
-def most_used_emojis(chat: data.Chat, top: int=1) -> {str: [(str, int)]}:
+""" ___________________________________________________________________________________________
+                                        Emojis
+    ___________________________________________________________________________________________
+"""
+
+
+def emoji_map_to_image(emoji_strings: [str]) -> [facebook_emojis.Emoji]:
+    return list(map(facebook_emojis.facebook_emojis.get_emoji, emoji_strings))
+
+
+def most_used_emojis_per_participant(chat: data.Chat, top: int=1) -> {str: [(str, int)]}:
     """
     Returns the most used emojis for each participant. The number indicates how many emojis it
     returns.
     """
     output: {str, [str]} = {}
-    emoji_grouped = emoji_each_count(chat)
+    emoji_grouped = emoji_each_count_per_participant(chat)
 
     for participant in emoji_grouped.keys():
         # set default value
@@ -25,13 +36,13 @@ def most_used_emojis(chat: data.Chat, top: int=1) -> {str: [(str, int)]}:
     return output
 
 
-def emoji_each_count(chat: data.Chat) -> {str: [(str, int)]}:
+def emoji_each_count_per_participant(chat: data.Chat) -> {str: [(str, int)]}:
     """
     This function returns for each participant the grouped emoji count that means if the participant sent
     5 of the crying emoji the map will have {participant_name: [..., (:crying:, 5), ...]
     """
     output: {str: [(str, int)]} = {}
-    all_emoji = emojis(chat)
+    all_emoji = emojis_per_participant(chat)
 
     for participant in all_emoji.keys():
         # add default value
@@ -63,12 +74,12 @@ def emoji_each_count(chat: data.Chat) -> {str: [(str, int)]}:
     return output
 
 
-def emoji_count(chat: data.Chat) -> {str: int}:
+def emoji_count_per_participant(chat: data.Chat) -> {str: int}:
     """
     Returns how many emojis each participant sent in the chat
     """
     output: {str, int} = {}
-    all_emojis = emojis(chat)
+    all_emojis = emojis_per_participant(chat)
 
     for participant in all_emojis.keys():
         output[participant] = len(all_emojis[participant])
@@ -76,7 +87,7 @@ def emoji_count(chat: data.Chat) -> {str: int}:
     return output
 
 
-def emojis(chat: data.Chat) -> {str: [str]}:
+def emojis_per_participant(chat: data.Chat) -> {str: [str]}:
     """
     Returns list of emojis in chronological order for each participant
     """
@@ -94,11 +105,10 @@ def emojis(chat: data.Chat) -> {str: [str]}:
     return output
 
 
-def get_from_to_date(chat: data.Chat, from_date: datetime.date, to_date: datetime.date) -> [data.Message]:
-    """
-    Returns messages inside the given from and till date. Inclusive on both sides
-    """
-    return list(filter(lambda msg: from_date <= msg.date.date() <= to_date, chat.messages))
+""" ___________________________________________________________________________________________
+                                        Search
+    ___________________________________________________________________________________________
+"""
 
 
 def _search_in_message_word(chat: data.Chat, word: str, ignore_case=False) -> {str: [data.Message]}:
@@ -161,6 +171,23 @@ def search_in_messages(chat: data.Chat, word: str = None, regex: str=None, ignor
         return _search_in_message_word(chat, word, ignore_case)
 
 
+""" ___________________________________________________________________________________________
+                                    Character count
+    ___________________________________________________________________________________________
+"""
+
+
+def character_count_per_participant_by_day(chat: data.Chat) -> {str: (datetime.date, int)}:
+    """
+    Returns for each participant how many characters (s)he sent on each day from the start of the conversation
+    till today.
+    """
+    # this stores for each day how many messages were sent by each participant
+    character_count = character_by_day(chat)
+
+    return _count_per_participant_per_day(chat, character_count)
+
+
 def avg_character_count(chat: data.Chat) -> {str: float}:
     """
     This function returns how many characters each participant uses on average in each message
@@ -191,7 +218,7 @@ def character_by_day(chat: data.Chat) -> [(datetime.date, {str: int})]:
                                               {msgordered[0].sender: msgordered[0].character_count()})
     for i in range(1, len(msgordered)):
         # we are still on same day
-        if (msgordered[i].date.date() - curr_date).days == 0:
+        if (msgordered[i].date.date() - curr_date[0]).days == 0:
             # add to character count of the person
             curr_date[1][msgordered[i].sender] = curr_date[1].get(msgordered[1].sender, 0)\
                                                     + msgordered[i].character_count()
@@ -223,6 +250,12 @@ def character_count(chat: data.Chat) -> {str: int}:
             output[msg.sender] += msg.character_count()
 
     return output
+
+
+""" ___________________________________________________________________________________________
+                                Response count/time
+    ___________________________________________________________________________________________
+"""
 
 
 def response_count(chat: data.Chat) -> {str: int}:
@@ -373,6 +406,23 @@ def _response_times_sum_by_day(chat: data.Chat) -> [(datetime.date, {str: (int, 
     return output
 
 
+""" ___________________________________________________________________________________________
+                                Message count/time
+    ___________________________________________________________________________________________
+"""
+
+
+def message_count_per_participant_by_day(chat: data.Chat) -> {str: (datetime.date, int)}:
+    """
+    Returns for each participant how many messages (s)he sent on each day from the start of the conversation
+    till today.
+    """
+    # this stores for each day how many messages were sent by each participant
+    msg_counts = message_by_day(chat)
+
+    return _count_per_participant_per_day(chat, msg_counts)
+
+
 def message_by_day(chat: data.Chat) -> [(datetime.date, {str: int})]:
     """
     This function returns day by day how many messages were exchanged from each participant
@@ -420,6 +470,32 @@ def message_count(chat: data.Chat) -> {str: int}:
     return msg_counts
 
 
+""" ___________________________________________________________________________________________
+                                        Dates
+    ___________________________________________________________________________________________
+"""
+
+
+def all_dates(chat: data.Chat) -> [datetime.date]:
+    """
+    Returns all dates in a list between the start of conversation and today
+    """
+    # get the start and end dates
+    date_btwn = date_between(chat)
+    date_btwn = (date_btwn[0], datetime.datetime.today())
+    # for how many days the conversation went on
+    day_count = (date_btwn[1] - date_btwn[0]).days
+
+    return [(date_btwn[0] + datetime.timedelta(days=x)).date() for x in range(day_count)]
+
+
+def get_from_to_date(chat: data.Chat, from_date: datetime.date, to_date: datetime.date) -> [data.Message]:
+    """
+    Returns messages inside the given from and till date. Inclusive on both sides
+    """
+    return list(filter(lambda msg: from_date <= msg.date.date() <= to_date, chat.messages))
+
+
 def active_dates(chat: data.Chat) -> [datetime.date]:
     """
     Returns on which dates the chat was active
@@ -449,3 +525,43 @@ def date_between(chat: data.Chat) -> (datetime.datetime, datetime.datetime):
     msgordered: [data.Message] = chat.messages
 
     return msgordered[0].date, msgordered[len(msgordered) - 1].date
+
+
+"""_____________________________________________________________________________
+                                MISC
+    ____________________________________________________________________________
+"""
+
+
+def _count_per_participant_per_day(chat: data.Chat, data: [(datetime.date, {str: int})]) -> {str: (datetime.date, int)}:
+    """
+    Returns for each participant how many of the data (s)he had on each day from the start of the conversation
+    till today. It sums them together. It changes how the data is stored.
+    :param data: [(on what day, {participantName, dataCount}]
+    :return: {participantName: (date, count)}
+    """
+    # get all dates between start and end
+    dates: [datetime.date] = all_dates(chat)
+
+    # this stores for each participant how many messages they sent for each day
+    counts_each_participant = {}
+    # add default values
+    for participant in chat.participants:
+        counts_each_participant[participant.name] = []
+
+    data_index = 0
+    for date in dates:
+        # we are on the date when there were messages
+        if data_index < len(data) and (date - data[data_index][0]).days == 0:
+            # for each participant we add the current day
+            for participant in chat.participants:
+                data_c = data[data_index][1].get(participant.name, 0)
+
+                counts_each_participant[participant.name].append(data_c)
+
+            data_index += 1
+        else:  # there is no data for this day -> add 0s
+            for participant in chat.participants:
+                counts_each_participant[participant.name].append(0)
+
+    return counts_each_participant
