@@ -75,9 +75,15 @@ class FacebookEmojis:
                     break
 
         if emoji_class is None:
-            print("Demojized", emoji_str, "to", emoji_name, ". Is available?", emoji_class is not None)
+            print("[ERROR] Demojized", emoji_str, "to", emoji_name, "is not available as picture!")
 
         return emoji_class
+
+    def get_emojis_from_string(self, string: str) -> [Emoji]:
+        """
+        Returns all emojis from a given string
+        """
+        return map(lambda a: self.get_emoji(a), filter(lambda char: char in emoji.UNICODE_EMOJI.keys(), string))
 
 
 facebook_emojis = FacebookEmojis()

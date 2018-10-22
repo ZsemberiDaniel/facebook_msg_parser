@@ -23,6 +23,10 @@ class Message:
         self.sender = sender
         self.time_stamp = time_stamp
         self.content = content
+        if content is not None:
+            self._with_special = content
+        else:
+            self._with_special = ""
         self.msg_type = msg_type
 
     @property
@@ -43,7 +47,7 @@ class Message:
 
     def gifs_add(self, value: str):
         self._gifs.append(value)
-        self.content += " (gif: " + value + " )"
+        self._with_special += " (gif: " + value + " )"
 
     @property
     def photos(self):
@@ -51,7 +55,7 @@ class Message:
 
     def photos_add(self, value: str):
         self._photos.append(value)
-        self.content += " (photo: " + value + " )"
+        self._with_special += " (photo: " + value + " )"
 
     @property
     def shares(self):
@@ -59,7 +63,7 @@ class Message:
 
     def shares_add(self, value: str):
         self._share.append(value)
-        self.content += " (share: " + value + " )"
+        self._with_special += " (share: " + value + " )"
 
     @property
     def reactions(self):
@@ -67,6 +71,10 @@ class Message:
 
     def reactions_add(self, value: Reaction):
         self._reactions.append(value)
+
+    @property
+    def content_with_special(self) -> str:
+        return self.content + self._with_special
 
     def __eq__(self, other):
         if self is other:
@@ -84,7 +92,7 @@ class Message:
 
     def str_for_user(self) -> str:
         return str(self.date.year) + ". " + str(self.date.month) + ". " + str(self.date.day) + ". " +\
-               str(self.sender) + ": " + str(self.content)
+               str(self.sender) + ": " + str(self.content_with_special)
 
     def character_count(self) -> int:
         return len(self.content)
@@ -93,7 +101,8 @@ class Message:
         """
         Returns whether this message contains any media
         """
-        return len(self._share) != 0 or len(self._photos) != 0 or len(self._gifs) != 0
+        return self.msg_type.lower() == "generic" and\
+               (len(self._share) != 0 or len(self._photos) != 0 or len(self._gifs) != 0)
 
 
 class Participant:

@@ -3,7 +3,7 @@ from data import facebook_emojis
 import datetime
 import re
 import emoji
-
+import unicodedata
 
 """ ___________________________________________________________________________________________
                                         Emojis
@@ -15,7 +15,7 @@ def emoji_map_to_image(emoji_strings: [str]) -> [facebook_emojis.Emoji]:
     return list(map(facebook_emojis.facebook_emojis.get_emoji, emoji_strings))
 
 
-def most_used_emojis_per_participant(chat: data.Chat, top: int=1) -> {str: [(str, int)]}:
+def emoji_most_used_per_participant(chat: data.Chat, top: int = 1) -> {str: [(str, int)]}:
     """
     Returns the most used emojis for each participant. The number indicates how many emojis it
     returns.
@@ -31,7 +31,7 @@ def most_used_emojis_per_participant(chat: data.Chat, top: int=1) -> {str: [(str
         sorted_emojis = sorted(emoji_grouped[participant], key=lambda t: t[1], reverse=True)
 
         for i in range(min(top, len(sorted_emojis))):
-                output[participant].append(sorted_emojis[i])
+            output[participant].append(sorted_emojis[i])
 
     return output
 
@@ -91,7 +91,27 @@ def emojis_per_participant(chat: data.Chat) -> {str: [str]}:
     """
     Returns list of emojis in chronological order for each participant
     """
+    emoji_messages = emoji_messages_per_participant(chat)
     output: {str: [str]} = {}
+
+    # set default values
+    for participant in chat.participants:
+        output[participant.name] = []
+
+        # collect them
+        for msg in emoji_messages[participant.name]:
+            if not msg.is_special_message():
+                # check whether a character is in the list of emojis stored in the emoji library
+                output[msg.sender] += filter(lambda char: char in emoji.UNICODE_EMOJI.keys(), msg.content)
+
+    return output
+
+
+def emoji_messages_per_participant(chat: data.Chat) -> {str: [data.Message]}:
+    """
+    Returns messages that contain emoji(s) for each participant
+    """
+    output: {str: [data.Message]} = {}
 
     # set default values
     for participant in chat.participants:
@@ -99,8 +119,9 @@ def emojis_per_participant(chat: data.Chat) -> {str: [str]}:
 
     # collect them
     for msg in chat.messages:
-        # check whether a character is in the list of emojis stored in the emoji library
-        output[msg.sender] += filter(lambda char: char in emoji.UNICODE_EMOJI.keys(), msg.content)
+        # check whether the message contains an emoji
+        if not msg.is_special_message() and re.search(emoji.get_emoji_regexp(), msg.content):
+            output[msg.sender].append(msg)
 
     return output
 
@@ -153,7 +174,8 @@ def _search_in_message_regex(chat: data.Chat, regex: str, ignore_case=False) -> 
     return output
 
 
-def search_in_messages(chat: data.Chat, word: str = None, regex: str=None, ignore_case=False) -> {str: [data.Message]}:
+def search_in_messages(chat: data.Chat, word: str = None, regex: str = None, ignore_case=False) -> {
+    str: [data.Message]}:
     """
     We search in the given messages either with regex or just a plain word. If the regex is given
     then that will be the preferred type.
@@ -220,8 +242,8 @@ def character_by_day(chat: data.Chat) -> [(datetime.date, {str: int})]:
         # we are still on same day
         if (msgordered[i].date.date() - curr_date[0]).days == 0:
             # add to character count of the person
-            curr_date[1][msgordered[i].sender] = curr_date[1].get(msgordered[1].sender, 0)\
-                                                    + msgordered[i].character_count()
+            curr_date[1][msgordered[i].sender] = curr_date[1].get(msgordered[1].sender, 0) \
+                                                 + msgordered[i].character_count()
         else:
             output.append(curr_date)
 
@@ -531,6 +553,34 @@ def date_between(chat: data.Chat) -> (datetime.datetime, datetime.datetime):
                                 MISC
     ____________________________________________________________________________
 """
+
+
+def get_messages_only_by(chat: data.Chat, participants: [str]) -> data.Chat:
+    """
+    Returns messages only by the participants that are given. The names are checked in lower case ascii form
+    and any of the given participants is a substring of
+    """
+    # map participants to correct ascii lower case
+    participants = list(map(lambda n: unicodedata.normalize("NFD", n.lower()).encode("ASCII", "ignore").decode("UTF-8"),
+                            participants))
+    # map the participants of the chat to an ascii lower case name plus the original name
+    chat_participants = list(
+        map(lambda p: (unicodedata.normalize("NFD", p.name.lower()).encode("ASCII", "ignore").decode("UTF-8"), p.name),
+            chat.participants)
+    )
+
+    # these are the real names of the participants that are accepted by the given list
+    # first it filters them from the chat_participants list of tuples then maps them to be a single value rather than
+    # a tuple
+    accept_participants = list(map(lambda t: t[1],
+                                   filter(lambda p: any(map(lambda participant: participant in p[0], participants)),
+                                          chat_participants)))
+
+    if len(accept_participants) > 0:
+        new_messages = list(filter(lambda msg: msg.sender in accept_participants, chat.messages))
+        chat.messages = new_messages
+
+    return chat
 
 
 def _count_per_participant_per_day(chat: data.Chat, data: [(datetime.date, {str: int})]) -> {str: (datetime.date, int)}:
