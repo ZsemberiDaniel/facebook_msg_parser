@@ -174,8 +174,8 @@ def _search_in_message_regex(chat: data.Chat, regex: str, ignore_case=False) -> 
     return output
 
 
-def search_in_messages(chat: data.Chat, word: str = None, regex: str = None, ignore_case=False) -> {
-    str: [data.Message]}:
+def search_in_messages(chat: data.Chat, word: str = None, regex: str = None, ignore_case=False) ->\
+        {str: [data.Message]}:
     """
     We search in the given messages either with regex or just a plain word. If the regex is given
     then that will be the preferred type.
@@ -299,7 +299,8 @@ def response_count(chat: data.Chat) -> {str: int}:
 
 def avg_response_time(chat: data.Chat) -> {str: float}:
     """
-    This function calculates the average response times with the overnight responses taken into consideration
+    This function calculates the average response times with the overnight responses taken into consideration.
+    May return None if there were no responses
     """
     # it will collect the sum in output and the count of responses to response_counter
     # at the end of the function we will divide output by counter
@@ -313,7 +314,9 @@ def avg_response_time(chat: data.Chat) -> {str: float}:
         output[participant.name] = 0
 
     # go in order of time (oldest first)
-    last_response: data.Response = next(responses)
+    last_response: data.Response = next(responses, None)
+    if last_response is None:
+        return None
     for response in responses:
         # add to the counter and sum
         output[response.sender] += (response.date_time - last_response.date_time).seconds
@@ -333,15 +336,19 @@ def avg_response_time(chat: data.Chat) -> {str: float}:
 def avg_response_time_no_overnight(chat: data.Chat) -> {str: float}:
     """
     This function returns average response time for each participant. It is calculated by
-    separating each day and calculating response time for each one and then averaging those
+    separating each day and calculating response time for each one and then averaging those.
+    May return None if there were no responses.
     """
     # it will collect the sum in output and the count of responses to response_counter
     # at the end of the function we will divide output by counter
     output: {str, float} = {}
     response_counter: {str, int} = response_count(chat)
 
-    # this returns for each day the sum of response times and the resposne counters
+    # this returns for each day the sum of response times and the response counters
     _response_sum_by_day = _response_times_sum_by_day(chat)
+
+    if _response_sum_by_day is None:
+        return None
 
     # define default value for each
     for participant in chat.participants:
@@ -367,11 +374,14 @@ def avg_response_time_by_day(chat: data.Chat) -> [(datetime.date, {str: float})]
     """
     This function returns day by day how many seconds it took for each participant to respond on average
     :param chat: The chat to analyze
-    :return: A list of tuples of dates and data sorted in order
+    :return: A list of tuples of dates and data sorted in order. May return none if there were no responses
     """
 
     output: [(datetime.date, {str: float})] = []
     time_sums_by_day = _response_times_sum_by_day(chat)
+
+    if time_sums_by_day is None:
+        return None
 
     # map to output data (we need to calculate average)
     output_avgs = {}
@@ -390,14 +400,20 @@ def avg_response_time_by_day(chat: data.Chat) -> [(datetime.date, {str: float})]
 
 def _response_times_sum_by_day(chat: data.Chat) -> [(datetime.date, {str: (int, float)})]:
     """
-    This function returns for each day: {responder: (sum of response times, response count)}
+    This function returns for each day: {responder: (sum of response times, response count)}.
+    Ensures that only the dates and participants with responses are added to the list.
+    May return None if there were no responses in the chat
     """
     output: [(datetime.date, {str: (int, float)})] = []
     response_ordered = chat.get_responses()
 
     # this will store what day we are currently on and the counters and response times for each participant
     data_for_day: (datetime.date, {str: (int, float)}) = (datetime.date(1990, 1, 1), {})
-    last_response = next(response_ordered)
+    last_response = next(response_ordered, None)
+
+    # there were no responses
+    if last_response is None:
+        return None
     # go in order of time (oldest first)
     for response in response_ordered:
         # next message is still on same day
@@ -455,20 +471,21 @@ def message_by_day(chat: data.Chat) -> [(datetime.date, {str: int})]:
     output: [(datetime.date, {str, int})] = []
     msgordered: [data.Message] = chat.messages
 
-    # this will store what day we are currently on and the counters for each participant
-    counter_for_day = (msgordered[0].date.date(), {msgordered[0].sender: 1})
-    # go in order of time (oldest first)
-    for i in range(1, len(msgordered)):
-        # next message is still on same day
-        if (msgordered[i].date.date() - counter_for_day[0]).days == 0:
-            # add one to the sender's counter (if it does not exist set it to 1)
-            counter_for_day[1][msgordered[i].sender] = 1 + counter_for_day[1].get(msgordered[i].sender, 0)
-        else:  # we got to at least next day
-            output.append(counter_for_day)  # add the last day to output
-            counter_for_day = (msgordered[i].date.date(), {msgordered[i].sender: 1})  # make this day the current one
+    if len(msgordered) > 0:
+        # this will store what day we are currently on and the counters for each participant
+        counter_for_day = (msgordered[0].date.date(), {msgordered[0].sender: 1})
+        # go in order of time (oldest first)
+        for i in range(1, len(msgordered)):
+            # next message is still on same day
+            if (msgordered[i].date.date() - counter_for_day[0]).days == 0:
+                # add one to the sender's counter (if it does not exist set it to 1)
+                counter_for_day[1][msgordered[i].sender] = 1 + counter_for_day[1].get(msgordered[i].sender, 0)
+            else:  # we got to at least next day
+                output.append(counter_for_day)  # add the last day to output
+                counter_for_day = (msgordered[i].date.date(), {msgordered[i].sender: 1})  # make this day the current
 
-    # add last one
-    output.append(counter_for_day)
+        # add last one
+        output.append(counter_for_day)
 
     return output
 
@@ -500,10 +517,13 @@ def message_count(chat: data.Chat) -> {str: int}:
 
 def all_dates(chat: data.Chat) -> [datetime.date]:
     """
-    Returns all dates in a list between the start of conversation and today
+    Returns all dates in a list between the start of conversation and today.
+    May return None if there were no active dates
     """
     # get the start and end dates
     date_btwn = date_between(chat)
+    if date_btwn is None:
+        return None
     date_btwn = (date_btwn[0], datetime.datetime.today())
     # for how many days the conversation went on
     day_count = (date_btwn[1] - date_btwn[0]).days
@@ -520,12 +540,15 @@ def get_from_to_date(chat: data.Chat, from_date: datetime.date, to_date: datetim
 
 def active_dates(chat: data.Chat) -> [datetime.date]:
     """
-    Returns on which dates the chat was active
+    Returns on which dates the chat was active.
+    May return None if there were no active dates
     """
     output: [datetime.date] = []
 
     # ordered by time (oldest first)
     msgordered: [data.Message] = chat.messages
+    if len(msgordered) == 0:
+        return None
 
     curr_date = msgordered[0].date.date()
     output.append(curr_date)
@@ -560,7 +583,7 @@ def get_messages_only_by(chat: data.Chat, participants: [str]) -> data.Chat:
     Returns messages only by the participants that are given. The names are checked in lower case ascii form
     and any of the given participants is a substring of
     """
-    # map participants to correct ascii lower case
+    # map filter participants to correct ascii lower case
     participants = list(map(lambda n: unicodedata.normalize("NFD", n.lower()).encode("ASCII", "ignore").decode("UTF-8"),
                             participants))
     # map the participants of the chat to an ascii lower case name plus the original name
@@ -576,6 +599,8 @@ def get_messages_only_by(chat: data.Chat, participants: [str]) -> data.Chat:
                                    filter(lambda p: any(map(lambda participant: participant in p[0], participants)),
                                           chat_participants)))
 
+    chat.participants = list(map(lambda name: data.Participant(name), accept_participants))
+
     if len(accept_participants) > 0:
         new_messages = list(filter(lambda msg: msg.sender in accept_participants, chat.messages))
         chat.messages = new_messages
@@ -590,6 +615,9 @@ def _count_per_participant_per_day(chat: data.Chat, data: [(datetime.date, {str:
     :param data: [(on what day, {participantName, dataCount}]
     :return: {participantName: (date, count)}
     """
+    if len(chat.participants) == 0:
+        return {}
+
     # get all dates between start and end
     dates: [datetime.date] = all_dates(chat)
 

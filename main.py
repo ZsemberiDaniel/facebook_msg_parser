@@ -3,7 +3,6 @@ from controller import chat_decoder
 from view import choose_chat_text_input as cc_tinp
 from view import chat_data_text_input as cd_tinp
 from data import data
-from data import facebook_emojis
 import asyncio
 
 
@@ -28,7 +27,8 @@ def got_chosen_chat(future):
     chat: data.Chat = future.result()
     loop.stop()
 
-    run = cd_tinp.start_command_line(chat)
+    cmd_line = cd_tinp.ChatCommandLine(chat)
+    cmd_line.start_command_line()
 
 
 main()
