@@ -1,69 +1,96 @@
-import re
-import string
-from typing import Optional
-
+from view import console_input
+from view import chat_data_text_input
+from controller import chat_decoder
 from data import data
 
-
-_choose_command = "c"
-_help_command = "help"
-_filter_command = "f"
+from colorama import Fore, Style
 
 
-def choose_chat(chats) -> data.Chat:
-    for chat in chats:
-        print(chat.string_for_user())
+class ChooseChatCommandLine(console_input.ConsoleInput):
+    command_choose = console_input.ConsoleCommand(
+        ["choose", "c"],
+        lambda console, switches, kwargs: console.choose(kwargs["chats"], switches),
+        lambda: ChooseChatCommandLine.help_choose()
+    )
+    command_filter = console_input.ConsoleCommand(
+        ["filter", "f"],
+        lambda console, switches, kwargs: console.filter(kwargs["chats"], switches),
+        lambda: ChooseChatCommandLine.help_filter()
+    )
 
-    # until the user chooses get next command
-    output = _process_command(_get_next_command(), chats)
-    while output is None:
-        output = _process_command(_get_next_command(), chats)
+    def __init__(self, chats: [data.Chat]):
+        super().__init__()
+        self.chats = chats
+        self.command_line_name = "choose chat command line"
 
-    return output
+        self.add_commands(self.command_choose, self.command_filter)
 
+    def process_command(self, commands, **kwargs):
+        super().process_command(commands, chats=self.chats)
 
-def _get_next_command() -> string:
-    return input("Choose a chat with c [name]! For other command type help! ")
+    def print_welcome_message(self):
+        print(Fore.BLUE + """   \  |                                                                             |                         
+  |\/ |   _ \   __|   __|   _ \  __ \    _` |   _ \   __|       _` |  __ \    _` |  |  |   | _  /   _ \   __| 
+  |   |   __/ \__ \ \__ \   __/  |   |  (   |   __/  |         (   |  |   |  (   |  |  |   |   /    __/  |    
+ _|  _| \___| ____/ ____/ \___| _|  _| \__, | \___| _|        \__,_| _|  _| \__,_| _| \__, | ___| \___| _|    
+                                       |___/                                          ____/                   """ +
+              Fore.RESET)
 
+    def _get_write_string(self, kwargs, switches: [str]):
+        if "chats" in kwargs:
+            out_string = "Names:\n"
+            chats: [data.Chat] = kwargs["chats"]
 
-def _write_filtered(substr, chats) -> None:
-    """
-    Writes out the chats which names contain the given substr
-    """
-    for chat in chats:
-        if substr in chat.name:
-            print(chat.string_for_user())
+            for chat in chats:
+                out_string += chat.name + "\n"
 
+            return out_string
+        else:
+            return super()._get_write_string(kwargs, switches)
 
-def _process_command(command, chats) -> Optional[data.Chat]:
-    """
-    Processes a given string command. Writes out stuff if needed
-    :param command: The command as string
-    :param chats: What chats we are currently working with
-    :return: None if we need another command otherwise the chose chat
-    """
+    def filter(self, chats: [data.Chat], switches: [str]):
+        """
+        Filters the names with the given substring in switches
+        """
+        substr = switches[-1]
 
-    # only one whitespace in between -> split by that
-    commands = re.sub("\s+", " ", command).strip().split(" ")
+        return {"chats": filter(lambda chat: substr in chat.name, chats)}
 
-    if commands[0] == _help_command:
-        print("Choose a chat with \t\t\t c [name]")
-        print("Filter with \t\t\t\t f [substring]")
-        print("In case you already forgot get this help with \t help")
-    elif commands[0] == _filter_command:
-        _write_filtered(commands[1], chats)
-    elif commands[0] == _choose_command:
+    def choose(self, chats: [data.Chat], switches: [str]):
+        """
+        Chooses the chat from the switches then starts a command line for that
+        """
+        substr = switches[-1]
+
         # get all that contain this string
-        found = [c for c in chats if commands[1] in c.name]
+        found = [c for c in chats if substr in c.name]
 
+        chosen_chat = None
         # if there was an exact match then choose that
         for chat in found:
-            if chat.name == commands[1]:
-                return chat
+            if chat.name == substr:
+                chosen_chat = chat
 
-        if len(found) > 1:
-            print("There are more than 1 names found with " + commands[1])
-        elif len(found) == 0:
-            print("None found with this name!")
-        else:
-            return found[0]
+        if chosen_chat is None:
+            if len(found) > 1:
+                print(Fore.YELLOW + "There are more than 1 names found with " + substr + " (" + str(len(found))
+                      + ")" + Fore.RESET)
+                return
+            elif len(found) == 0:
+                print(Fore.RED + "None found with this name!" + Fore.RESET)
+                return
+            else:
+                chosen_chat = found[0]
+
+        # start chat command line
+        chosen_chat = chat_decoder.add_all_data(chosen_chat)
+        chat_command_line = chat_data_text_input.ChatCommandLine(chosen_chat)
+        chat_command_line.start_command_line()
+
+    @staticmethod
+    def help_choose():
+        print("""You can choose a chat with \t choose [substring_of_name]""")
+
+    @staticmethod
+    def help_filter():
+        print("""You can filter the names with \t filter [substring]""")

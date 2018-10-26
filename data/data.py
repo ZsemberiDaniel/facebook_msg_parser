@@ -1,4 +1,5 @@
 from sortedcontainers import SortedList
+from unicodedata import normalize
 import datetime
 
 
@@ -19,14 +20,11 @@ class Message:
         self._photos = []
         self._share = []
         self._reactions = []
+        self._with_special = ""
 
         self.sender = sender
         self.time_stamp = time_stamp
         self.content = content
-        if content is not None:
-            self._with_special = content
-        else:
-            self._with_special = ""
         self.msg_type = msg_type
 
     @property
@@ -109,6 +107,23 @@ class Participant:
     def __init__(self, name=None):
         self.name = name
 
+    def name_matches_ascii(self, to_match: str):
+        """
+        Checks whether the given string matches the name in lower case ASCII form.
+        On to_match ASCII conversion and lower case conversion happens as well
+        """
+        return normalize("NFD", to_match.lower()).encode("ASCII", "ignore").decode("UTF-8") in \
+                    normalize("NFD", self.name.lower()).encode("ASCII", "ignore").decode("UTF-8")
+
+    def __eq__(self, other):
+        if isinstance(other, Participant):
+            return other.name == self.name
+        else:
+            return False
+
+    def __hash__(self):
+        return hash(self.name)
+
 
 class Response:
     def __init__(self, messages: [Message]):
@@ -134,7 +149,7 @@ class Response:
 
     @property
     def time_span(self) -> datetime.timedelta:
-        return self.messages[len(self.messages) - 1].date - self.messages[0].date
+        return self.messages[len(self.messages) - 1].date - self.messages[0].datechat
 
 
 class Chat:
@@ -144,7 +159,21 @@ class Chat:
         self.msg_folder_path = msg_folder_path
         self.media_folder_path = media_folder_path
         self.name = name
-        self.participants = []
+        self._participants = set()
+
+    @property
+    def participants(self):
+        return list(self._participants)
+
+    @participants.setter
+    def participants(self, participants: [Participant]):
+        self._participants = set(participants)
+
+    def add_participant(self, participant: Participant):
+        self._participants.add(participant)
+
+    def is_participant(self, name: str):
+        return Participant(name) in self._participants
 
     @property
     def messages(self):
@@ -160,11 +189,18 @@ class Chat:
     def add_message(self, message: Message):
         self._messages.add(message)
 
+    def add_message_with_check(self, message: Message):
+        """
+        Adds a message while checking that there is a participant with hte given name. If there isn't
+        then that is added as well.
+        """
+        self._messages.add(message)
+
+        if not self.is_participant(message.sender):
+            self.add_participant(Participant(message.sender))
+
     def __str__(self):
         return "Name: " + self.name + "\t Has media folder? " + str(self.has_media())
-
-    def string_for_user(self):
-        return "Name: " + self.name
 
     def has_media(self):
         return self.media_folder_path is not None

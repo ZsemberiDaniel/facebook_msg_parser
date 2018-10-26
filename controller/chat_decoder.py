@@ -4,7 +4,7 @@ import os.path
 from data import data
 
 
-async def add_all_data(chat) -> data.Chat:
+def add_all_data(chat) -> data.Chat:
     """
     Adds all data that can be read from messages file to the given chat.
     The chat needs to have the messages path defined.
@@ -49,7 +49,7 @@ def decode_chat(dct, chat=None) -> data.Chat:
     msgs = decode_messages(dct.get("messages", []))
 
     for msg in msgs:
-        chat.add_message(msg)
+        chat.add_message_with_check(msg)
 
     # rename with a better name
     chat.name = dct.get("title", chat.name)

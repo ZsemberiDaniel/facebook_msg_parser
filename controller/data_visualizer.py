@@ -211,27 +211,27 @@ def _save_image(image: Image.Image, path: str):
     image.save(path + ".png")
 
 
-def plot_activity_char(chat: data.Chat):
+def plot_activity_char(chat: data.Chat, size=(1000, 750)):
     """
     Plots the activity based on the character count with a line chart
     """
     dates = chat_analyzer.all_dates(chat)
     counts_each_participant = chat_analyzer.character_count_per_participant_by_day(chat)
 
-    _plot_for_each_participant(chat, dates, counts_each_participant, title="Character counts")
+    _plot_for_each_participant(chat, dates, counts_each_participant, title="Character counts", size=size)
 
 
-def plot_activity_msg(chat: data.Chat):
+def plot_activity_msg(chat: data.Chat, size=(1000, 750)):
     """
     Plots the activity based on message counts with a line chart
     """
     dates = chat_analyzer.all_dates(chat)
     counts_each_participant = chat_analyzer.message_count_per_participant_by_day(chat)
 
-    _plot_for_each_participant(chat, dates, counts_each_participant, title="Message counts")
+    _plot_for_each_participant(chat, dates, counts_each_participant, title="Message counts", size=size)
 
 
-def _plot_for_each_participant(chat: data.Chat, x_axes: [], values: {str: []}, title=None):
+def _plot_for_each_participant(chat: data.Chat, x_axes: [], values: {str: []}, title=None, size=(1000, 750)):
     """
     Makes a plot that has data for all the participants.
     :param chat: The chat for which we want to make the plot
@@ -240,7 +240,7 @@ def _plot_for_each_participant(chat: data.Chat, x_axes: [], values: {str: []}, t
     """
     with plotlib.style.context("fivethirtyeight"):
         # create plotlib classes
-        figure: plotlib.Figure = plotlib.figure(figsize=(10, 5))
+        figure: plotlib.Figure = plotlib.figure(figsize=(size[0] / 96, size[1] / 96))
         axes: plotlib.Axes = plotlib.axes()
 
         # set title if one was given

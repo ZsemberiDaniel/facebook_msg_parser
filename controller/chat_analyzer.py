@@ -4,6 +4,7 @@ import datetime
 import re
 import emoji
 import unicodedata
+from colorama import Fore
 
 """ ___________________________________________________________________________________________
                                         Emojis
@@ -147,8 +148,16 @@ def _search_in_message_word(chat: data.Chat, word: str, ignore_case=False) -> {s
         output[participant.name] = []
 
     for msg in chat.messages:
-        if not msg.is_special_message() and (msg.content.lower() if ignore_case else msg.content).find(word) >= 0:
-            output[msg.sender].append(msg)
+        found_at = (msg.content.lower() if ignore_case else msg.content).find(word)
+
+        if not msg.is_special_message() and found_at >= 0:
+            # adding coloring to the part where the substring was found
+            new_content = msg.content[:found_at] + Fore.GREEN + msg.content[found_at:found_at + len(word)] + Fore.RESET\
+                          + msg.content[found_at + len(word):]
+
+            # making a new message object so we don't modify the one given as parameter
+            m = data.Message(msg.sender, msg.time_stamp, new_content, msg.msg_type)
+            output[msg.sender].append(m)
 
     return output
 
@@ -168,8 +177,20 @@ def _search_in_message_regex(chat: data.Chat, regex: str, ignore_case=False) -> 
         output[participant.name] = []
 
     for msg in chat.messages:
-        if not msg.is_special_message() and re.search(regex, msg.content.lower() if ignore_case else msg.content):
-            output[msg.sender].append(msg)
+        # naming it something random so it does not intersect with the user's groups
+        search = re.search("(?P<fyop>" + regex + ")", msg.content.lower() if ignore_case else msg.content)
+
+        if not msg.is_special_message() and search:
+            found_start = search.start("fyop")
+            found_end = search.end("fyop")
+
+            # adding coloring to the part where the substring was found
+            new_content = msg.content[:found_start] + Fore.GREEN + msg.content[found_start:found_end] + Fore.RESET \
+                           + msg.content[found_end:]
+
+            # making a new message object so we don't modify the one given as parameter
+            m = data.Message(msg.sender, msg.time_stamp, new_content, msg.msg_type)
+            output[msg.sender].append(m)
 
     return output
 
@@ -583,6 +604,7 @@ def get_messages_only_by(chat: data.Chat, participants: [str]) -> data.Chat:
     Returns messages only by the participants that are given. The names are checked in lower case ascii form
     and any of the given participants is a substring of
     """
+    new_chat = data.Chat(chat.msg_folder_path, chat.media_folder_path, chat.name)
     # map filter participants to correct ascii lower case
     participants = list(map(lambda n: unicodedata.normalize("NFD", n.lower()).encode("ASCII", "ignore").decode("UTF-8"),
                             participants))
@@ -599,13 +621,13 @@ def get_messages_only_by(chat: data.Chat, participants: [str]) -> data.Chat:
                                    filter(lambda p: any(map(lambda participant: participant in p[0], participants)),
                                           chat_participants)))
 
-    chat.participants = list(map(lambda name: data.Participant(name), accept_participants))
+    new_chat.participants = list(map(lambda name: data.Participant(name), accept_participants))
 
     if len(accept_participants) > 0:
         new_messages = list(filter(lambda msg: msg.sender in accept_participants, chat.messages))
-        chat.messages = new_messages
+        new_chat.messages = new_messages
 
-    return chat
+    return new_chat
 
 
 def _count_per_participant_per_day(chat: data.Chat, data: [(datetime.date, {str: int})]) -> {str: (datetime.date, int)}:

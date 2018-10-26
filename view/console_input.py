@@ -30,13 +30,19 @@ class ConsoleInput:
         lambda console, switches, kwargs: console.help(switches),
         lambda: ConsoleInput._print_help_help()
     )
-    commands_all: [ConsoleCommand] = []
-    _console_running = False
+    command_write = ConsoleCommand(
+        ["write", "w"],
+        lambda cmd_line, switches, kwargs: cmd_line.write(kwargs, switches),
+        lambda: ConsoleInput.help_write()
+    )
 
     def __init__(self):
         self._commands_dict = {}
+        self.commands_all: [ConsoleCommand] = []
+        self._console_running = False
+        self.command_line_name = "command line"
 
-        self.add_commands(self.command_quit, self.command_help)
+        self.add_commands(self.command_quit, self.command_help, self.command_write)
 
     def add_command(self, command: ConsoleCommand):
         """
@@ -54,12 +60,16 @@ class ConsoleInput:
         for cmd in args:
             self.add_command(cmd)
 
-    @staticmethod
-    def get_next_command(prompt="Type command: ") -> str:
-        return input(prompt)
+    def print_welcome_message(self):
+        print("\nWelcome to " + self.command_line_name + "!")
 
-    @staticmethod
-    def split_command(cmd: str) -> [str]:
+    def print_quit_message(self):
+        print("Quitting " + self.command_line_name + "!\n")
+
+    def get_next_command(self) -> str:
+        return input("" + self.command_line_name + " : ")
+
+    def split_command(self, cmd: str) -> [str]:
         # split by whitespaces except when the whitespace is in quotes
         # we need to map the tuple because of the word found is in quotes it will be in the snd of the tuple
         return list(map(lambda t: t[0] if len(t[1]) == 0 else t[1],
@@ -70,9 +80,10 @@ class ConsoleInput:
         Starts the command line and passes the kwargs to the process command method
         """
         self._console_running = True
+        self.print_welcome_message()
 
         while self._console_running:
-            self.process_command(ConsoleInput.get_next_command(), kwargs=kwargs)
+            self.process_command(self.get_next_command(), kwargs=kwargs)
 
     def process_command(self, commands, **kwargs):
         """
@@ -81,7 +92,12 @@ class ConsoleInput:
         pipeline = commands.split("||")
 
         for command in pipeline:
-            split = ConsoleInput.split_command(command)
+            split = self.split_command(command)
+
+            if len(split) <= 0:
+                print("No command given!")
+                return
+
             name = split[0]
             switches = split[1:]
 
@@ -95,6 +111,36 @@ class ConsoleInput:
                     # copy the kwargs so we can keep any that has not been modified
                     for key in new_kwargs.keys():
                         kwargs[key] = new_kwargs[key]
+
+    def _get_write_string(self, kwargs, switches: [str]) -> str:
+        """
+        This function is used for getting the string for the write command. So override if needed
+        """
+        out = ""
+
+        for key in kwargs.keys():
+            out += str(key) + " : " + str(kwargs[key]) + "\n"
+
+        return out
+
+    def write(self, kwargs, switches: [str]):
+        """
+        This function is called when the user writes in the write function
+        """
+        out_string = self._get_write_string(kwargs, switches)
+
+        if "-f" in switches:
+            file_in_array = switches.index("-f")
+            try:
+                file_name = switches[file_in_array + 1]
+            except IndexError:
+                print("You need to provide the name of the file for write!")
+                return
+
+            with open(file_name, "w+") as file:
+                file.write(out_string)
+        else:
+            print(out_string)
 
     def help(self, switches: [str]):
         """
@@ -117,10 +163,17 @@ class ConsoleInput:
         Quits from this console
         """
         self._console_running = False
+        self.print_quit_message()
 
     @staticmethod
     def _print_quit_help():
         print("Quit with \t quit")
+
+    @staticmethod
+    def help_write():
+        # write
+        print("Write out anything with \t write [switches]")
+        print("\t You can write to a file with \t -f [filename]")
 
     @staticmethod
     def _print_help_help():

@@ -3,9 +3,11 @@ from view import markov_text_input
 from view import console_input as con_inp
 from controller import chat_analyzer
 from controller import data_visualizer
+from pyfiglet import figlet_format
 import texttable as tt
 import datetime
 from copy import deepcopy
+from colorama import Fore
 
 
 class ChatCommandLine(con_inp.ConsoleInput):
@@ -36,7 +38,7 @@ class ChatCommandLine(con_inp.ConsoleInput):
     )
     command_markov = con_inp.ConsoleCommand(
         ["markov", "m"],
-        lambda cmd_line, switches, kwargs: cmd_line.markov_commnad_line(kwargs["chat"], switches),
+        lambda cmd_line, switches, kwargs: cmd_line.enter_markov_command_line(kwargs["chat"], switches),
         lambda: ChatCommandLine.help_markov()
     )
     command_search = con_inp.ConsoleCommand(
@@ -44,15 +46,11 @@ class ChatCommandLine(con_inp.ConsoleInput):
         lambda cmd_line, switches, kwargs: cmd_line.search(kwargs["chat"], switches[:-1], switches[-1]),
         lambda: ChatCommandLine.help_search()
     )
-    command_write = con_inp.ConsoleCommand(
-        ["write", "w"],
-        lambda cmd_line, switches, kwargs: cmd_line.print_write(kwargs["chat"], switches),
-        lambda: ChatCommandLine.help_write()
-    )
 
     def __init__(self, chat: data.Chat):
         super().__init__()
         self.chat = chat
+        self.command_line_name = "chat command line"
 
         self.add_commands(self.command_basic_data, self.command_message_count, self.command_chart, self.commands_filter,
                           self.command_markov, self.command_search, self.command_write)
@@ -60,27 +58,40 @@ class ChatCommandLine(con_inp.ConsoleInput):
     def process_command(self, commands, **kwargs):
         super().process_command(commands, chat=deepcopy(self.chat))
 
+    def print_welcome_message(self):
+        print("\n" + figlet_format(self.chat.name, font="mini"))
+
     def enter_markov_command_line(self, chat: data.Chat, switches: [str]):
         layer_count = 3
         try:
             if len(switches) >= 1:
                 layer_count = int(switches[1])
         except ValueError:
-            pass
+            print(Fore.RED + "Layer count needs to be a number in markov command!" + Fore.RESET)
 
-        print("Entering markov command line!")
-        markov_text_input.start_markov_command_line(chat, layer_count)
+        markov_cmd_line = markov_text_input.MarkovCommandLine(chat, layer_count)
+        markov_cmd_line.start_command_line()
 
     def chart(self, chat: data.Chat, switches: [str]):
         width = 1000
+        height = 600
         emoji_per_row = 15
 
         try:
             at = switches.index("-s")
 
-            if len(switches) > at + 1:
-                width = int(switches[at + 1])
-        except ValueError:  # both index and parsing can come here
+            try:
+                if len(switches) > at + 1:
+                    split = switches[at + 1].split("x")
+                    if len(split) > 1:  # [width]x[height]
+                        width = int(split[0])
+                        height = int(split[1])
+                    else:
+                        width = int(switches[at + 1])
+            except ValueError:
+                print(Fore.RED + "Integer values need to be provided for the -s switch in chart!" + Fore.RESET)
+                return
+        except ValueError:
             pass
 
         try:
@@ -92,9 +103,9 @@ class ChatCommandLine(con_inp.ConsoleInput):
             pass
 
         if len(switches) == 0 or "-m" in switches:
-            data_visualizer.plot_activity_msg(chat)
+            data_visualizer.plot_activity_msg(chat, size=(width, height))
         if len(switches) == 0 or "-c" in switches:
-            data_visualizer.plot_activity_char(chat)
+            data_visualizer.plot_activity_char(chat, size=(width, height))
         if len(switches) == 0 or "-e" in switches:
             data_visualizer.plot_emojis_per_participant(chat, width, emoji_size=width // emoji_per_row)
         if len(switches) == 0 or "-ey" in switches:
@@ -118,7 +129,11 @@ class ChatCommandLine(con_inp.ConsoleInput):
             if switches[date_in_array + 1] == "_":  # the from date was omitted
                 from_date = datetime.date(1990, 1, 1)
             else:
-                f_year, f_month, f_day = map(int, switches[date_in_array + 1].split("."))
+                try:
+                    f_year, f_month, f_day = map(int, switches[date_in_array + 1].split("."))
+                except ValueError:
+                    print(Fore.RED + "Starting month should be in format YYYY.MM.DD!" + Fore.RESET)
+                    return
 
                 from_date = datetime.date(f_year, f_month, f_day)
 
@@ -128,7 +143,11 @@ class ChatCommandLine(con_inp.ConsoleInput):
                     switches[date_in_array + 2].startswith("-"):  # another switch
                 to_date = datetime.date.today()
             else:
-                t_year, t_month, t_day = map(int, switches[date_in_array + 2].split("."))
+                try:
+                    t_year, t_month, t_day = map(int, switches[date_in_array + 2].split("."))
+                except ValueError:
+                    print(Fore.RED + "Ending date should be in format YYYY.MM.DD!" + Fore.RESET)
+                    return
 
                 to_date = datetime.date(t_year, t_month, t_day)
 
@@ -153,25 +172,18 @@ class ChatCommandLine(con_inp.ConsoleInput):
 
         return {"chat": chat}
 
-    def print_write(self, chat: data.Chat, switches: [str]):
-        # here we'll store the messages we want to write out because we may want to apply filters to them
-        output_messages: data.Chat = data.Chat()
-        output_messages.messages = chat.messages.copy()
+    def _get_write_string(self, kwargs, switches: [str]):
+        chat: data.Chat = kwargs.get("chat", None)
 
-        # what we want to write
-        output = ""
-        for msg in output_messages.messages:
-            output += msg.str_for_user() + "\n"
+        if chat is not None:
+            # what we want to write
+            output = ""
+            for msg in chat.messages:
+                output += msg.str_for_user() + "\n"
 
-        # write to file or write to console
-        try:
-            file_in_array = switches.index("-f")
-            file_name = switches[file_in_array + 1]
-
-            with open(file_name, "w+") as oFile:
-                oFile.write(output)
-        except ValueError:  # we should write to console
-            print(output)
+            return output
+        else:
+            return super()._get_write_string(kwargs, switches)
 
     def search(self, chat: data.Chat, switches: [str], word_or_regex: str) -> {}:
         # based on the switches we can search in regex or
@@ -192,13 +204,13 @@ class ChatCommandLine(con_inp.ConsoleInput):
 
         # nothing found
         if msg_count == 0:
-            print("Nothing found that matches " + word_or_regex)
+            print(Fore.YELLOW + "Nothing found that matches " + word_or_regex + Fore.RESET)
             chat.messages = []
 
             return chat
 
-        # got some results. Ask whether we want to print them or not
-        print("Found " + str(msg_count) + " matching messages")
+        # got some results
+        print(Fore.GREEN + "Found " + str(msg_count) + " matching messages" + Fore.RESET)
 
         # collect them into one list
         all_msg = []
@@ -221,6 +233,7 @@ class ChatCommandLine(con_inp.ConsoleInput):
         most_used_emoji = chat_analyzer.emoji_most_used_per_participant(chat)
 
         table = tt.Texttable()
+        table.set_cols_width([25] + [10] * len(msg_counts.keys()))
         header = [""]
         msg_counts_text = ["Message counts"]
         response_count_text = ["Response count"]
@@ -231,16 +244,20 @@ class ChatCommandLine(con_inp.ConsoleInput):
         emoji_count_text = ["Emoji count"]
         most_used_emoji_text = ["Most used emoji"]
 
-        for participant in msg_counts.keys():
+        for participant in sorted(msg_counts.keys()):
             header.append(participant)
-            msg_counts_text.append(msg_counts.get(participant, "-"))
-            response_count_text.append(response_count.get(participant, "-"))
-            avg_resp_time_day_text.append(str(avg_response_time_day.get(participant, 0) / 60) + " min")
-            avg_resp_time_text.append(str(avg_response_time.get(participant, 0) / 60) + " min")
-            char_count_text.append(sum_character_count.get(participant, "-"))
-            avg_char_count_text.append(avg_character_count.get(participant, "-"))
+            msg_counts_text.append(msg_counts.get(participant, 0))
+            response_count_text.append(response_count.get(participant, 0))
+            avg_resp_time_day_text.append("{0:.2f} min".format(avg_response_time_day.get(participant, 0) / 60))
+            avg_resp_time_text.append("{0:.2f} min".format(avg_response_time.get(participant, 0) / 60))
+            char_count_text.append(sum_character_count.get(participant, 0))
+            avg_char_count_text.append("{0:.2f}".format(avg_character_count.get(participant, 0)))
             emoji_count_text.append(emojis_count.get(participant, "-"))
-            most_used_emoji_text.append(most_used_emoji.get(participant, "-"))
+            top_emoji = most_used_emoji.get(participant, None)
+            if top_emoji is not None and len(top_emoji) > 0:
+                most_used_emoji_text.append(str(top_emoji[0][0]) + ": " + str(top_emoji[0][1]))
+            else:
+                most_used_emoji_text.append("-")
 
         table.header(header)
         table.add_row(msg_counts_text)
@@ -296,12 +313,6 @@ class ChatCommandLine(con_inp.ConsoleInput):
         print("Enter the markov chain mode with \t markov [number_of_layers]")
 
     @staticmethod
-    def help_write():
-        # write
-        print("Write out messages with \t write [switches]")
-        print("\t You can write to a file with \t -f [filename]")
-
-    @staticmethod
     def help_chart():
         # chart
         print("Make charts with \t chart")
@@ -310,6 +321,8 @@ class ChatCommandLine(con_inp.ConsoleInput):
         print("\t Chart character count with \t -c")
         print("\t Chart emojis with \t -e")
         print("\t Chart emojis yearly with with \t -ey")
+        print("\t For count charting:")
+        print("\t\t Specify size with \t -s [width]x[height]")
         print("\t For emoji charting:")
         print("\t\t Specify size with (height will be decided by how many emojis there are) \t -s [width]")
         print("\t\t Specify how many emojis per row with \t -r [value]")
