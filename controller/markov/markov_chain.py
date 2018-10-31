@@ -230,7 +230,6 @@ class MarkovChain:
                     chain[key] = (chain[key][0], markov_state_from_dictionary(key, chain[key][1]))
             else:
                 for key in chain.keys():
-                    convert_all(chain[key][1], layer_at + 1)
 
                     # we convert the tuples of (how_many_after_word, dicts) to MarkovStates
                     tuples = []

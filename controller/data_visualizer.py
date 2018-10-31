@@ -1,17 +1,195 @@
 import matplotlib.pyplot as plotlib
+import matplotlib.ticker as ticker
 import random
 import os
+from matplotlib.gridspec import GridSpec
+from datetime import datetime, timedelta
 from math import ceil
 from PIL import Image, ImageDraw, ImageFont
 from controller import chat_analyzer
 from data import data
 from data import facebook_emojis as fe
+from definitions import ROOT_DIR
 
 
-title_font = ImageFont.truetype("fonts/Roboto-Bold.ttf", 32)
+title_font = ImageFont.truetype(os.path.join(ROOT_DIR, "fonts", "Roboto-Bold.ttf"), 32)
 title_color = (38, 50, 56, 255)
-year_font = ImageFont.truetype("fonts/Roboto-Regular.ttf", 24)
+year_font = ImageFont.truetype(os.path.join(ROOT_DIR, "fonts", "Roboto-Regular.ttf"), 24)
 year_color = (69, 90, 100, 255)
+
+
+def plot_emoji_emotions_monthly(chat: data.Chat, size=(1000, 500), title="Emoji emotions monthly"):
+    # theses will be used to make the bars
+    x_axes = chat_analyzer.all_months(chat)
+    per_participant: {str: {str: []}} = {}  # per participant per emotion
+    max_per_participant: {str: int} = {}  # we need to store what is the max amount of one emotion for each participant
+                                          # for plotting purposes. Later we calculate this while mapping data
+    # initial values
+    for participant in chat.participants:
+        per_participant[participant.name] = {}
+        max_per_participant[participant.name] = 0
+
+        for emotion in fe.Emoji.all_emotions:
+            per_participant[participant.name][emotion] = []
+
+    # we need to map this data to per participants instead of per months
+    per_month: {datetime.date: {str: {str: int}}} = chat_analyzer.emoji_emotions_monthly(chat)
+
+    for month in per_month:
+        for participant in per_month[month]:
+            for emotion in fe.Emoji.all_emotions:
+                count_from_emotion = per_month[month][participant].get(emotion, 0)
+                per_participant[participant][emotion].append(count_from_emotion)
+
+                # here we are calculating the max of the count
+                if count_from_emotion > max_per_participant[participant]:
+                    max_per_participant[participant] = count_from_emotion
+
+    # PLOTTING
+
+    # font sizes
+    SMALL_FONT = size[0] / 200
+    NORMAL_FONT = size[0] / 160
+    BIGGER_FONT = size[0] / 100
+
+    # formatting of x axes
+    def x_major_tick_formatter(dt, pos) -> str:
+        dt = datetime.fromordinal(int(dt))
+        return "{:04d}-{:02d}".format(dt.year, dt.month)
+
+    for participant in per_participant:
+        figure: plotlib.Figure = plotlib.figure(figsize=(size[0] / 96, size[1] / 96))
+
+        # we are making a grid of subplots based on all the emotions that can be conveyed so we base the row and
+        # column count on the emotion count
+        emotion_count = len(fe.Emoji.all_emotions)
+        col_count = emotion_count // 3
+        row_count = int(ceil(emotion_count / col_count)) + 2  # we add 2 for the !!! EXTREME SUBPLOT !!!
+        gridspec = GridSpec(ncols=col_count, nrows=row_count, figure=figure)
+
+        for x in range(col_count):
+            for y in range(row_count - 2):
+                emotion_at = x * (row_count - 2) + y
+                if emotion_at >= emotion_count:  # we need to continue because there are no emotions left 😭
+                    continue
+
+                # what emotion we are currently plotting
+                emotion = fe.Emoji.all_emotions[emotion_at]
+
+                # set font sizes for plot
+                plotlib.rc("xtick", labelsize=NORMAL_FONT)
+                plotlib.rc("ytick", labelsize=NORMAL_FONT)
+                plotlib.rc("legend", fontsize=SMALL_FONT)
+
+                # adding to grid
+                axes: plotlib.Axes = figure.add_subplot(gridspec[y, x])
+
+                # plotting the bars
+                axes.plot(x_axes, per_participant[participant][emotion], color=fe.Emoji.emotion_colors[emotion_at])
+
+                # giving title
+                axes.set_title("".join(emotion[0].upper() + emotion[1:]))
+
+                # hide top bottom
+                axes.spines["right"].set_visible(False)
+                axes.spines["top"].set_visible(False)
+
+                # axis settings
+                axes.xaxis.set_major_formatter(ticker.FuncFormatter(x_major_tick_formatter))
+
+                # the ticks for the y axis. We don't want too many, so we divide by 'n' to get exactly 'n'
+                y_ticks = list(range(0, max_per_participant[participant], max_per_participant[participant] // 4))
+                axes.yaxis.set_ticks(y_ticks)
+
+        # BEWARE! DANGER!
+        # H E R E   C O M E S   T H E   E X T R E M E   S U B P L O T
+        extreme_axes: plotlib.Axes = figure.add_subplot(gridspec[-2:, :])
+
+        # set font sizes for plot
+        plotlib.rc("xtick", labelsize=BIGGER_FONT)
+        plotlib.rc("ytick", labelsize=BIGGER_FONT)
+        plotlib.rc("legend", fontsize=NORMAL_FONT)
+
+        emotion_at = 0
+        for emotion in fe.Emoji.all_emotions:
+            extreme_axes.plot(x_axes, per_participant[participant][emotion], color=fe.Emoji.emotion_colors[emotion_at])
+
+            emotion_at += 1
+
+        # hide top bottom
+        extreme_axes.spines["right"].set_visible(False)
+        extreme_axes.spines["top"].set_visible(False)
+
+        # axis settings
+        extreme_axes.xaxis.set_major_formatter(ticker.FuncFormatter(x_major_tick_formatter))
+
+        # TODO: title not inside the plot. Internet does not know how to do it
+        figure.suptitle(title + " (" + participant + ")")
+        plotlib.show()
+
+
+def plot_message_distribution(chat: data.Chat, size=(1000, 500), title="Message distribution"):
+    """
+    Plots the message distribution over hours per participant
+    :param chat: What to analyze
+    :param size: What size the chart should be
+    :param title: What title to give the chart
+    """
+    figure: plotlib.Figure = plotlib.figure(figsize=(size[0] / 96, size[1] / 96))
+    axes: plotlib.Axes = plotlib.axes()
+
+    axes.grid(True, axis="y", color="#546E7A", linestyle="dotted")
+
+    # font sizes
+    SMALL_FONT = size[0]/100
+    NORMAL_FONT = size[0]/80
+    BIGGER_FONT = size[0]/50
+
+    # set font sizes for plot
+    plotlib.rc("xtick", labelsize=NORMAL_FONT)
+    plotlib.rc("ytick", labelsize=NORMAL_FONT)
+    plotlib.rc("legend", fontsize=SMALL_FONT)
+
+    # formatting for y axis
+    def hour_formatter(nmb: int, pos):
+        hour = int(nmb // 3600)
+        nmb -= hour * 3600
+        minute = int(nmb // 60)
+        nmb -= minute * 60
+        sec = int(nmb)
+
+        return "{0:02d}".format(hour) + ":" + "{0:02d}".format(minute) + ":" + "{0:02d}".format(sec)
+
+    axes.yaxis.set_major_formatter(ticker.FuncFormatter(hour_formatter))
+    axes.set_yticks(range(0, 86_401, 14_400))
+
+    # title if given
+    if title is not None:
+        axes.set_title(title, fontsize=BIGGER_FONT)
+
+    # this contains for each participant: (color, [dates], [when message was sent])
+    data: {str: (str, [datetime], [timedelta])} = {}
+    for participant in chat.participants:
+        data[participant.name] = (random_color() + "20", [], [])
+
+    # map messages to the data format above
+    for msg in chat.messages:
+        data[msg.sender][1].append(msg.date)
+        data[msg.sender][2].append((msg.date - datetime.combine(msg.date.date(), datetime.min.time())).seconds)
+
+    # do the plotting
+    for participant in chat.participants:
+        axes.scatter(x=data[participant.name][1], y=data[participant.name][2], s=size[0]/50, color=data[participant.name][0],
+                     label=participant.name)
+
+    # legend
+    axes.legend(loc="best", fancybox=True, framealpha=1, shadow=True, borderpad=0.5)
+
+    # hide top bottom
+    axes.spines["right"].set_visible(False)
+    axes.spines["top"].set_visible(False)
+
+    plotlib.show()
 
 
 def plot_emojis_per_participant_yearly(chat: data.Chat, image_width=1000, emoji_size=100,
@@ -50,7 +228,9 @@ def plot_emojis_per_participant(chat: data.Chat, image_width=1000, emoji_size=10
     :return: None
     """
     # get the string emojis first
-    str_emojis: {str: [str]} = chat_analyzer.emojis_per_participant(chat)
+    str_emojis: {str: [str]} = chat_analyzer.emoji_map_to_strs_per_participant(
+        chat_analyzer.emoji_messages_per_participant(chat)
+    )
 
     for participant in chat.participants:
         # we need to convert them to Emoji classes so we know where the image file is
@@ -215,7 +395,7 @@ def plot_activity_char(chat: data.Chat, size=(1000, 750)):
     """
     Plots the activity based on the character count with a line chart
     """
-    dates = chat_analyzer.all_dates(chat)
+    dates = chat_analyzer.all_days(chat)
     counts_each_participant = chat_analyzer.character_count_per_participant_by_day(chat)
 
     _plot_for_each_participant(chat, dates, counts_each_participant, title="Character counts", size=size)
@@ -225,7 +405,7 @@ def plot_activity_msg(chat: data.Chat, size=(1000, 750)):
     """
     Plots the activity based on message counts with a line chart
     """
-    dates = chat_analyzer.all_dates(chat)
+    dates = chat_analyzer.all_days(chat)
     counts_each_participant = chat_analyzer.message_count_per_participant_by_day(chat)
 
     _plot_for_each_participant(chat, dates, counts_each_participant, title="Message counts", size=size)
@@ -238,18 +418,26 @@ def _plot_for_each_participant(chat: data.Chat, x_axes: [], values: {str: []}, t
     :param x_axes: What to show for the x axes values
     :param values: What values to show {participantName: [values]}
     """
+    NORMAL_FONT = size[0]/80
+    BIGGER_FONT = size[0]/50
+
     with plotlib.style.context("fivethirtyeight"):
+        # set font sizes for plot
+        plotlib.rc("xtick", labelsize=NORMAL_FONT)
+        plotlib.rc("ytick", labelsize=NORMAL_FONT)
+        plotlib.rc("legend", fontsize=BIGGER_FONT)
+
         # create plotlib classes
-        figure: plotlib.Figure = plotlib.figure(figsize=(size[0] / 96, size[1] / 96))
+        plotlib.figure(figsize=(size[0] / 96, size[1] / 96))
         axes: plotlib.Axes = plotlib.axes()
 
         # set title if one was given
         if title is not None:
-            axes.set_title(title)
+            axes.set_title(title, fontsize=BIGGER_FONT)
 
         # plot all participant
         for participant in chat.participants:
-            color = random_color()
+            color = random_color() + "5D"
             axes.plot(x_axes, values.get(participant.name, []), label=participant.name, color=color)
 
         axes.legend(loc="upper left", fancybox=True, framealpha=1, shadow=True, borderpad=0.5)
@@ -261,4 +449,4 @@ colors = ["#B71C1C", "#4527A0", "#1565C0", "#2E7D32", "#EF6C00", "#4E342E", "#21
 
 
 def random_color() -> str:
-    return colors[random.randint(0, len(colors) - 1)] + "5D"
+    return colors[random.randint(0, len(colors) - 1)]

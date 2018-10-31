@@ -22,6 +22,7 @@ class Message:
         self._reactions = []
         self._with_special = ""
 
+        self.date: datetime.datetime = None
         self.sender = sender
         self.time_stamp = time_stamp
         self.content = content
@@ -154,6 +155,11 @@ class Response:
 
 class Chat:
     def __init__(self, msg_folder_path=None, media_folder_path=None, name=None):
+        """
+        :param msg_folder_path: The absolute path
+        :param media_folder_path: The absolute path
+        :param name: Name of the chat
+        """
         self._messages = SortedList()
 
         self.msg_folder_path = msg_folder_path
@@ -176,7 +182,7 @@ class Chat:
         return Participant(name) in self._participants
 
     @property
-    def messages(self):
+    def messages(self) -> [Message]:
         return list(iter(self._messages))
 
     @messages.setter

@@ -1,11 +1,14 @@
 from data import data
 from view import markov_text_input
+from view import emoji_analyzer_text_input
 from view import console_input as con_inp
 from controller import chat_analyzer
 from controller import data_visualizer
 from pyfiglet import figlet_format
+from misc.texttable_misc import get_string_wrapped
 import texttable as tt
 import datetime
+import unicodedata
 from copy import deepcopy
 from colorama import Fore
 
@@ -26,10 +29,10 @@ class ChatCommandLine(con_inp.ConsoleInput):
         lambda cmd_line, switches, kwargs: cmd_line.chart(kwargs["chat"], switches),
         lambda: ChatCommandLine.help_chart()
     )
-    # TODO
     command_emojis = con_inp.ConsoleCommand(
         ["emoji", "e"],
-        None
+        lambda cmd_line, switches, kwargs: cmd_line.only_emojis(kwargs["chat"], switches),
+        lambda: ChatCommandLine.help_emoji()
     )
     commands_filter = con_inp.ConsoleCommand(
         ["filter", "f"],
@@ -53,19 +56,36 @@ class ChatCommandLine(con_inp.ConsoleInput):
         self.command_line_name = "chat command line"
 
         self.add_commands(self.command_basic_data, self.command_message_count, self.command_chart, self.commands_filter,
-                          self.command_markov, self.command_search, self.command_write)
+                          self.command_markov, self.command_search, self.command_write, self.command_emojis)
 
     def process_command(self, commands, **kwargs):
         super().process_command(commands, chat=deepcopy(self.chat))
 
     def print_welcome_message(self):
-        print("\n" + figlet_format(self.chat.name, font="mini"))
+        print("\n" + figlet_format(unicodedata.normalize("NFD", self.chat.name).encode("ASCII", "ignore")
+                                   .decode("UTF-8"), font="mini"))
+
+    def only_emojis(self, chat: data.Chat, switches: [str]):
+        new_chat = chat
+
+        # analyzing emoji usage
+        if "-a" in switches:
+            emoji_console = emoji_analyzer_text_input.EmojiAnalyzerConsole(new_chat)
+            emoji_console.start_command_line()
+            return
+
+        if "-onlyem" in switches or "-o" in switches:
+            new_chat.messages = chat_analyzer.emoji_messages(chat)
+        else:
+            new_chat.messages = chat_analyzer.emoji_whole_messages(chat)
+
+        return {"chat": new_chat}
 
     def enter_markov_command_line(self, chat: data.Chat, switches: [str]):
         layer_count = 3
         try:
             if len(switches) >= 1:
-                layer_count = int(switches[1])
+                layer_count = int(switches[-1])
         except ValueError:
             print(Fore.RED + "Layer count needs to be a number in markov command!" + Fore.RESET)
 
@@ -88,6 +108,7 @@ class ChatCommandLine(con_inp.ConsoleInput):
                         height = int(split[1])
                     else:
                         width = int(switches[at + 1])
+                        height = int(width * (2/3))
             except ValueError:
                 print(Fore.RED + "Integer values need to be provided for the -s switch in chart!" + Fore.RESET)
                 return
@@ -102,14 +123,20 @@ class ChatCommandLine(con_inp.ConsoleInput):
         except ValueError:
             pass
 
-        if len(switches) == 0 or "-m" in switches:
+        do_all_plot = len(switches) == 0
+
+        if do_all_plot or "-d" in switches:
+            data_visualizer.plot_message_distribution(chat, size=(width, height))
+        if do_all_plot or "-m" in switches:
             data_visualizer.plot_activity_msg(chat, size=(width, height))
-        if len(switches) == 0 or "-c" in switches:
+        if do_all_plot or "-c" in switches:
             data_visualizer.plot_activity_char(chat, size=(width, height))
-        if len(switches) == 0 or "-e" in switches:
+        if do_all_plot or "-e" in switches:
             data_visualizer.plot_emojis_per_participant(chat, width, emoji_size=width // emoji_per_row)
-        if len(switches) == 0 or "-ey" in switches:
+        if do_all_plot or "-ey" in switches:
             data_visualizer.plot_emojis_per_participant_yearly(chat, width, emoji_size=width // emoji_per_row)
+        if do_all_plot or "-em" in switches:
+            data_visualizer.plot_emoji_emotions_monthly(chat, size=(width, height))
 
     def print_message_count(self, chat: data.Chat, switches: [str]):
         if "-p" in switches:
@@ -229,8 +256,9 @@ class ChatCommandLine(con_inp.ConsoleInput):
         avg_response_time = chat_analyzer.avg_response_time(chat) or {}
         sum_character_count = chat_analyzer.character_count(chat)
         avg_character_count = chat_analyzer.avg_character_count(chat)
-        emojis_count = chat_analyzer.emoji_count_per_participant(chat)
-        most_used_emoji = chat_analyzer.emoji_most_used_per_participant(chat)
+        emojis_count = chat_analyzer.emoji_strs_count_per_participant(chat)
+        most_used_emoji = chat_analyzer.emoji_strs_top_per_participant(chat)
+        most_used_emotion = chat_analyzer.emoji_emotions_top_per_participant(chat)
 
         table = tt.Texttable()
         table.set_cols_width([25] + [10] * len(msg_counts.keys()))
@@ -243,6 +271,7 @@ class ChatCommandLine(con_inp.ConsoleInput):
         avg_char_count_text = ["Avg. character count"]
         emoji_count_text = ["Emoji count"]
         most_used_emoji_text = ["Most used emoji"]
+        most_used_emotion_text = ["Most used emotion"]
 
         for participant in sorted(msg_counts.keys()):
             header.append(participant)
@@ -258,6 +287,11 @@ class ChatCommandLine(con_inp.ConsoleInput):
                 most_used_emoji_text.append(str(top_emoji[0][0]) + ": " + str(top_emoji[0][1]))
             else:
                 most_used_emoji_text.append("-")
+            top_emotion = most_used_emotion.get(participant, None)
+            if top_emotion is not None and len(top_emotion) > 0 and top_emotion[0][1] is not 0:
+                most_used_emotion_text.append(top_emotion[0][0] + ": " + str(top_emotion[0][1]))
+            else:
+                most_used_emotion_text.append("-")
 
         table.header(header)
         table.add_row(msg_counts_text)
@@ -268,11 +302,19 @@ class ChatCommandLine(con_inp.ConsoleInput):
         table.add_row(avg_char_count_text)
         table.add_row(emoji_count_text)
         table.add_row(most_used_emoji_text)
+        table.add_row(most_used_emotion_text)
 
         print("*************************************************************")
         print("Chatting started at " + str(between_dates[0].date()) + " ended (so far) at " + str(between_dates[1].date()))
-        print(table.draw())
+        print(get_string_wrapped(table, 150, 1))
         print("*************************************************************")
+
+    @staticmethod
+    def help_emoji():
+        print("""Get only the messages containing emojis \t emoji
+        \t You can enter emoji analyzer console with \t -a
+        \t You can remove non-emojis from messages with \t -onlyem or -o
+        """)
 
     @staticmethod
     def help_basic():
@@ -319,10 +361,12 @@ class ChatCommandLine(con_inp.ConsoleInput):
         print("\t You can omit all the switches to get every chart.")
         print("\t Chart message count with \t -m")
         print("\t Chart character count with \t -c")
+        print("\t Chart message distribution over hours with \t -d")
         print("\t Chart emojis with \t -e")
         print("\t Chart emojis yearly with with \t -ey")
+        print("\t Chart emoji emotions with \t -em")
         print("\t For count charting:")
-        print("\t\t Specify size with \t -s [width]x[height]")
+        print("\t\t Specify size with \t -s [width](x[height])")
         print("\t For emoji charting:")
         print("\t\t Specify size with (height will be decided by how many emojis there are) \t -s [width]")
         print("\t\t Specify how many emojis per row with \t -r [value]")

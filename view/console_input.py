@@ -150,7 +150,9 @@ class ConsoleInput:
         def _is_any_in_switches(values) -> bool:
             return any([x in switches for x in values])
 
-        # remove - from the beginning of switches if there are any
+        self.help_welcome()
+
+        # remove '-' from the beginning of switches if there are any
         if switches is not None:
             switches = list(map(lambda s: s[1:] if s.startswith("-") else s, switches))
 
@@ -164,6 +166,9 @@ class ConsoleInput:
         """
         self._console_running = False
         self.print_quit_message()
+
+    def help_welcome(self):
+        pass
 
     @staticmethod
     def _print_quit_help():

@@ -11,7 +11,7 @@ def add_all_data(chat) -> data.Chat:
     :return: The new chat object
     """
 
-    if chat.msg_folder_path is None:
+    if chat is None or chat.msg_folder_path is None:
         raise ValueError("The given chat needs to have at least a message path.")
 
     with open(os.path.join(chat.msg_folder_path, "message.json"), "r") as message_file:

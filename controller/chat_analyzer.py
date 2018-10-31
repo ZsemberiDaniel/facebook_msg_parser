@@ -1,28 +1,57 @@
 from data import data
-from data import facebook_emojis
 import datetime
 import re
 import emoji
 import unicodedata
 from colorama import Fore
+from data.facebook_emojis import facebook_emojis, Emoji as FEmoji
 
 """ ___________________________________________________________________________________________
                                         Emojis
     ___________________________________________________________________________________________
+    Some info for this section:
+       I use emoji_messages name as data.Message objects that only contain a single emoji in it's content but
+         still have other data like date and everything else
+       I use whole messages as the message that contains emojis but the text is still in tact next to it
+       Emoji str(s) refer to the emojis stored as unicode strings
+       The mapping functions help to map these to only strings if that is what you desire
 """
 
 
-def emoji_map_to_image(emoji_strings: [str]) -> [facebook_emojis.Emoji]:
-    return list(map(facebook_emojis.facebook_emojis.get_emoji, emoji_strings))
+def emoji_emotions_top_per_participant(chat: data.Chat, top: int = 1) -> {str: [(str, int)]}:
+    """
+    Returns for each participant what emotions (s)he wants to convey the most.
+    {participant: [(emotion, count)]}
+    """
+    # output and initialization of output
+    output: {str: [(str, int)]} = {}
+    for participant in chat.participants:
+        output[participant.name] = []
+
+    # counts how many times the emotion is used per participant
+    count_per_participant = emoji_emotion_count_per_participant(chat)
+    for participant in count_per_participant:
+        count = count_per_participant[participant]  # just giving it a name
+        # sort it by the count
+        sorted_emotions = list(sorted(count, key=lambda emotion: count[emotion], reverse=True))
+
+        # map to output format while filtering out the emotions which are not used
+        result_list = list(map(lambda emotion: (emotion, count[emotion]),
+                               filter(lambda e: count[e] > 0, sorted_emotions)))
+
+        # we return the first 'top' results, if there aren't enough in the list then we return the whole list
+        output[participant] = [] if len(result_list) is 0 else result_list[:min(top, len(result_list))]
+
+    return output
 
 
-def emoji_most_used_per_participant(chat: data.Chat, top: int = 1) -> {str: [(str, int)]}:
+def emoji_strs_top_per_participant(chat: data.Chat, top: int = 1) -> {str: [(str, int)]}:
     """
     Returns the most used emojis for each participant. The number indicates how many emojis it
     returns.
     """
     output: {str, [str]} = {}
-    emoji_grouped = emoji_each_count_per_participant(chat)
+    emoji_grouped = emoji_strs_each_count_per_participant(chat)
 
     for participant in emoji_grouped.keys():
         # set default value
@@ -37,13 +66,32 @@ def emoji_most_used_per_participant(chat: data.Chat, top: int = 1) -> {str: [(st
     return output
 
 
-def emoji_each_count_per_participant(chat: data.Chat) -> {str: [(str, int)]}:
+def emoji_emotion_count_per_participant(chat: data.Chat) -> {str: {str: int}}:
+    """
+    Returns for each participant how many times (s)he used the given emotions.
+    {participant: {emotion: count}}
+    """
+    # output and initialization of output
+    output: {str: {str: int}} = {}
+    for participant in chat.participants:
+        output[participant.name] = {}
+        for emotion in FEmoji.all_emotions:
+            output[participant.name][emotion] = 0
+
+    for msg in emoji_messages(chat):
+        for emotion in facebook_emojis.get_emoji(msg.content).emotions:
+            output[msg.sender][emotion] += 1
+
+    return output
+
+
+def emoji_strs_each_count_per_participant(chat: data.Chat) -> {str: [(str, int)]}:
     """
     This function returns for each participant the grouped emoji count that means if the participant sent
     5 of the crying emoji the map will have {participant_name: [..., (:crying:, 5), ...]
     """
-    output: {str: [(str, int)]} = {}
-    all_emoji = emojis_per_participant(chat)
+    output: {str: [(data.Message, int)]} = {}
+    all_emoji: {str: [data.Message]} = emoji_messages_per_participant(chat)
 
     for participant in all_emoji.keys():
         # add default value
@@ -51,36 +99,52 @@ def emoji_each_count_per_participant(chat: data.Chat) -> {str: [(str, int)]}:
 
         # first we sort the emojis then we can count how many there are of each easily
         # by counting the ones next to each other
-        sorted_emojis = sorted(all_emoji[participant])
+        sorted_emojis: [data.Message] = sorted(all_emoji[participant], key=emoji_map_to_str)
 
         if len(sorted_emojis) <= 0:
             continue
 
         # in these we'll count how many there are of the currently counted
         # all of them should be next to each other
-        curr_emoji = sorted_emojis[0]
+        curr_emoji = emoji_map_to_str(sorted_emojis[0])
         curr_count = 1
         for i in range(1, len(sorted_emojis)):
             # there is still more of the one currently being counter
-            if sorted_emojis[i] == curr_emoji:
+            if emoji_map_to_str(sorted_emojis[i]) == curr_emoji:
                 curr_count += 1
             else:  # a new emoji has begun appearing
                 # store the old one
                 output[participant].append((curr_emoji, curr_count))
 
                 # set the new one to be the current one
-                curr_emoji = sorted_emojis[i]
+                curr_emoji = emoji_map_to_str(sorted_emojis[i])
                 curr_count = 1
 
     return output
 
 
-def emoji_count_per_participant(chat: data.Chat) -> {str: int}:
+def emoji_emotions_count(chat: data.Chat) -> {str: int}:
+    """
+    Returns what emotions can be found in the chat and how many times. If there is 0 of that emotion that WILL BE
+    INCLUDED as well.
+    """
+    output: {str: int} = {}
+    for emotion in FEmoji.all_emotions:
+        output[emotion] = 0
+
+    for msg in emoji_map_to_strs(emoji_messages(chat)):
+        for emotion in facebook_emojis.get_emoji(msg).emotions:
+            output[emotion] += 1
+
+    return output
+
+
+def emoji_strs_count_per_participant(chat: data.Chat) -> {str: int}:
     """
     Returns how many emojis each participant sent in the chat
     """
     output: {str, int} = {}
-    all_emojis = emojis_per_participant(chat)
+    all_emojis = emoji_messages_per_participant(chat)
 
     for participant in all_emojis.keys():
         output[participant] = len(all_emojis[participant])
@@ -88,27 +152,66 @@ def emoji_count_per_participant(chat: data.Chat) -> {str: int}:
     return output
 
 
-def emojis_per_participant(chat: data.Chat) -> {str: [str]}:
+def emoji_emotions_monthly(chat: data.Chat) -> {datetime.date: {str: {str: int}}}:
     """
-    Returns list of emojis in chronological order for each participant
+    Returns for each month the chat was active, the per participant emotions conveyed by emojis.
+    {month: {participant: {emotion, count}}}
     """
-    emoji_messages = emoji_messages_per_participant(chat)
-    output: {str: [str]} = {}
+    months = all_months(chat)
+    months.append(months[len(months) - 1] + datetime.timedelta(days=33))  # add an extra date for messages after last dt
+    messages = emoji_messages(chat)
 
-    # set default values
-    for participant in chat.participants:
-        output[participant.name] = []
+    # We go through the months and while the messages's date is smaller than the current month we add it to a dict
+    # of {participant: {emotion: count}}. msg_at represents where we are in the messages lst so we don't have to start
+    # over each time.
+    output: {datetime.date: {str: {str: int}}} = {}
+    msg_at = 0
+    for month_at in range(1, len(months)):
+        month = months[month_at]  # we are currently adding emojis till this month
+        data: {str: {str: int}} = {}
 
-        # collect them
-        for msg in emoji_messages[participant.name]:
-            if not msg.is_special_message():
-                # check whether a character is in the list of emojis stored in the emoji library
-                output[msg.sender] += filter(lambda char: char in emoji.UNICODE_EMOJI.keys(), msg.content)
+        # add all participants
+        for participant in chat.participants:
+            data[participant.name] = {}
+
+        # we go through the messages
+        while msg_at < len(messages) and messages[msg_at].date.date() < month:
+            msg = messages[msg_at]
+            # get emoji object
+            f_emoji_obj: FEmoji = facebook_emojis.get_emoji(emoji_map_to_str(msg))
+
+            # add one to all emotions this emoji conveys
+            for emotion in f_emoji_obj.emotions:
+                data[msg.sender][emotion] = data[msg.sender].get(emotion, 0) + 1
+
+            msg_at += 1
+
+        # we reached the end of the emojis that are before the current month
+        output[months[month_at - 1]] = data
 
     return output
 
 
 def emoji_messages_per_participant(chat: data.Chat) -> {str: [data.Message]}:
+    """
+    Returns messages that only contain emoji(s) for each participant (the messages that contain emojis and text are
+    mapped to containing only emojis)
+    """
+    output: {str: [data.Message]} = {}
+
+    # set default values
+    for participant in chat.participants:
+        output[participant.name] = []
+
+    # collect them
+    for msg in emoji_messages(chat):
+        # check whether the message contains an emoji
+        output[msg.sender].append(msg)
+
+    return output
+
+
+def emoji_whole_messages_per_participant(chat: data.Chat) -> {str: [data.Message]}:
     """
     Returns messages that contain emoji(s) for each participant
     """
@@ -125,6 +228,57 @@ def emoji_messages_per_participant(chat: data.Chat) -> {str: [data.Message]}:
             output[msg.sender].append(msg)
 
     return output
+
+
+def emoji_messages(chat: data.Chat) -> [data.Message]:
+    """
+    Returns all the messages that contain emojis but they no longer contain the text, only the emojis
+    """
+    def only_emojis(msg: data.Message) -> [data.Message]:
+        msgs = []
+
+        # we need to make new messages if there are multiple emojis in the message given
+        # we append them to them msgs list
+        for ch in msg.content:
+            if ch in emoji.UNICODE_EMOJI:
+                msgs.append(data.Message(msg.sender, msg.time_stamp, ch, msg.msg_type))
+
+        return msgs
+
+    # we get lists from the only_emojis function so we need to flatten the list
+    return [item for sublist in list(map(only_emojis, emoji_whole_messages(chat))) for item in sublist]
+
+
+def emoji_whole_messages(chat: data.Chat) -> [data.Message]:
+    """
+    Returns the messages that contain emojis in chronological order
+    """
+    return list(filter(lambda msg: not msg.is_special_message() and re.search(emoji.get_emoji_regexp(), msg.content),
+                       chat.messages))
+
+
+def emoji_map_to_strs_per_participant(data: {str: [data.Message]}) -> {str: [str]}:
+    """
+    After using one of the emoji methods that returns emoji messages per participant you can use this function to only
+    get the emoji strings
+    """
+    return {name: emoji_map_to_strs(data[name]) for name in data}
+
+
+def emoji_map_to_strs(messages: [data.Message]) -> [str]:
+    """
+    After using one of the emoji methods you can use this to get only the emoji strings back, instead of the
+    message objects
+    """
+    return list(map(emoji_map_to_str, messages))
+
+
+def emoji_map_to_str(message: data.Message) -> str:
+    """
+    After using one of the emoji methods you can use this to get only the emoji string back, instead of the
+    message object
+    """
+    return message.content
 
 
 """ ___________________________________________________________________________________________
@@ -536,9 +690,9 @@ def message_count(chat: data.Chat) -> {str: int}:
 """
 
 
-def all_dates(chat: data.Chat) -> [datetime.date]:
+def all_days(chat: data.Chat) -> [datetime.date]:
     """
-    Returns all dates in a list between the start of conversation and today.
+    Returns all days in a list between the start of conversation and today.
     May return None if there were no active dates
     """
     # get the start and end dates
@@ -550,6 +704,29 @@ def all_dates(chat: data.Chat) -> [datetime.date]:
     day_count = (date_btwn[1] - date_btwn[0]).days
 
     return [(date_btwn[0] + datetime.timedelta(days=x)).date() for x in range(day_count)]
+
+
+def all_months(chat: data.Chat) -> [datetime.date]:
+    """
+    Returns all months in a list between the start of the conversation and today
+    May return None if there were no active dates
+    """
+    date_btwn = date_between(chat)
+    if date_btwn is None:
+        return None
+    curr_date = datetime.date(date_btwn[0].year, date_btwn[0].month, 1)
+    last_date = datetime.date.today()
+    new_date: datetime.date = curr_date
+
+    output: [datetime.date] = []
+    while new_date <= last_date:
+        output.append(new_date)
+        if new_date.month >= 12:
+            new_date = datetime.date(new_date.year + 1, 1, 1)
+        else:
+            new_date = datetime.date(new_date.year, new_date.month + 1, 1)
+
+    return output
 
 
 def get_from_to_date(chat: data.Chat, from_date: datetime.date, to_date: datetime.date) -> [data.Message]:
@@ -641,7 +818,7 @@ def _count_per_participant_per_day(chat: data.Chat, data: [(datetime.date, {str:
         return {}
 
     # get all dates between start and end
-    dates: [datetime.date] = all_dates(chat)
+    dates: [datetime.date] = all_days(chat)
 
     # this stores for each participant how many messages they sent for each day
     counts_each_participant = {}

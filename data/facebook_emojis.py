@@ -2,9 +2,7 @@ import json
 import os
 import emoji
 
-
-# location to the directory the project is in so we can read the facebook emoji data
-__location__ = os.path.realpath(os.getcwd())
+from definitions import ROOT_DIR
 
 
 class Emoji:
@@ -15,14 +13,22 @@ class Emoji:
 
         return Emoji(name=name,
                      codes=json_dict.get("codes", []),
-                     path=os.path.join(__location__, "img", json_dict.get("path", "default.png")),
-                     aliases=aliases)
+                     path=os.path.join(ROOT_DIR, "img", json_dict.get("path", "default.png")),
+                     aliases=aliases,
+                     emotions=json_dict.get("emotions", []))
 
-    def __init__(self, name: str, codes: [str], path: str, aliases: [str]):
+    all_emotions = ["love", "happy", "good", "neutral", "bad", "angry", "sad", "animal", "food", "meme", "kinky"]
+    # colors for the emotions in order of appearance of emotions in the list
+    emotion_colors = ["#FF69B4", "#FFD700", "#9ACD32", "#BC8F8F", "#2F4F4F", "#DC143C", "#6A5ACD", "#556B2F",
+                      "#D2B48C", "#8A2BE2", "#8B0000"]
+
+    def __init__(self, name: str, codes: [str], path: str, aliases: [str], emotions: [str]):
         self.name = name
         self.codes = codes
         self.path = path
         self.aliases = aliases
+        # any of these: "love", "happy", "good", "neutral", "bad", "angry", "sad", "animal", "food", "meme", "kinky"
+        self.emotions = emotions
 
     def __str__(self) -> str:
         return self.name + " with codes " + str(self.codes)
@@ -40,7 +46,7 @@ class FacebookEmojis:
 
     def _load_emojis(self):
         # path to the data file
-        data_file_path = os.path.join(__location__, "img", "data.txt")
+        data_file_path = os.path.join(ROOT_DIR, "img", "data.txt")
 
         with open(data_file_path) as file:
             # decode json of data file
@@ -60,11 +66,11 @@ class FacebookEmojis:
     def get_emoji(self, emoji_str: str):
         # for some reason, beyond me, the delimiter parameter of this function does not work for -
         # NICE 😄
-        demojize_str = emoji.demojize(emoji_str)
+        demojize_str = emoji.demojize(emoji_str).lower()
         # also for some reason there are emojis with both - and _ because why the hell not
         # so we need to replace them as well
         emoji_name = demojize_str[1:-1].replace("-", "_")  # remove the : from beginning and end
-        emoji_class = self.all_emojis.get(emoji_name.lower(), None)
+        emoji_class = self.all_emojis.get(emoji_name, None)
 
         if emoji_class is None:
             # fall back mechanism:
@@ -75,7 +81,7 @@ class FacebookEmojis:
                     break
 
         if emoji_class is None:
-            print("[ERROR] Demojized", emoji_str, "to", emoji_name, "is not available as picture!")
+            print("[ERROR] Demojized", emoji_str, "to", emoji_name, "and it is not available as picture!")
 
         return emoji_class
 

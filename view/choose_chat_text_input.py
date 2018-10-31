@@ -3,7 +3,7 @@ from view import chat_data_text_input
 from controller import chat_decoder
 from data import data
 
-from colorama import Fore, Style
+from colorama import Fore
 
 
 class ChooseChatCommandLine(console_input.ConsoleInput):
@@ -48,18 +48,26 @@ class ChooseChatCommandLine(console_input.ConsoleInput):
         else:
             return super()._get_write_string(kwargs, switches)
 
-    def filter(self, chats: [data.Chat], switches: [str]):
+    def filter(self, chats: [data.Chat], switches: [str]) -> {str: []}:
         """
         Filters the names with the given substring in switches
         """
+        if len(switches) <= 0:
+            print(Fore.RED + "You need to provide a substring of a name for filter!" + Fore.RESET)
+            return
+
         substr = switches[-1]
 
-        return {"chats": filter(lambda chat: substr in chat.name, chats)}
+        return {"chats": list(filter(lambda chat: substr in chat.name, chats))}
 
     def choose(self, chats: [data.Chat], switches: [str]):
         """
         Chooses the chat from the switches then starts a command line for that
         """
+        if len(switches) <= 0:
+            print(Fore.RED + "You need to provide a substring of a name for choose!" + Fore.RESET)
+            return
+
         substr = switches[-1]
 
         # get all that contain this string
