@@ -18,6 +18,18 @@ year_font = ImageFont.truetype(os.path.join(ROOT_DIR, "fonts", "Roboto-Regular.t
 year_color = (69, 90, 100, 255)
 
 
+def _save_plot(figure: plotlib.Figure, path: str):
+    """
+    Saves a plot to a given destination relative to the project
+    """
+    # if we want to create the file to a non-existent directory make one
+    parent_dir = os.path.abspath(os.path.join(path, os.pardir))
+    if not os.path.exists(parent_dir):
+        os.mkdir(parent_dir)
+
+    figure.savefig(path)
+
+
 def plot_emoji_emotions_monthly(chat: data.Chat, size=(1000, 500), title="Emoji emotions monthly"):
     # theses will be used to make the bars
     x_axes = chat_analyzer.all_months(chat)
@@ -66,6 +78,8 @@ def plot_emoji_emotions_monthly(chat: data.Chat, size=(1000, 500), title="Emoji 
         col_count = emotion_count // 3
         row_count = int(ceil(emotion_count / col_count)) + 2  # we add 2 for the !!! EXTREME SUBPLOT !!!
         gridspec = GridSpec(ncols=col_count, nrows=row_count, figure=figure)
+        gridspec.top = 0.95
+        gridspec.bottom = 0.05
 
         for x in range(col_count):
             for y in range(row_count - 2):
@@ -79,7 +93,6 @@ def plot_emoji_emotions_monthly(chat: data.Chat, size=(1000, 500), title="Emoji 
                 # set font sizes for plot
                 plotlib.rc("xtick", labelsize=NORMAL_FONT)
                 plotlib.rc("ytick", labelsize=NORMAL_FONT)
-                plotlib.rc("legend", fontsize=SMALL_FONT)
 
                 # adding to grid
                 axes: plotlib.Axes = figure.add_subplot(gridspec[y, x])
@@ -88,7 +101,7 @@ def plot_emoji_emotions_monthly(chat: data.Chat, size=(1000, 500), title="Emoji 
                 axes.plot(x_axes, per_participant[participant][emotion], color=fe.Emoji.emotion_colors[emotion_at])
 
                 # giving title
-                axes.set_title("".join(emotion[0].upper() + emotion[1:]))
+                axes.set_title("".join(emotion[0].upper() + emotion[1:]), fontsize=BIGGER_FONT)
 
                 # hide top bottom
                 axes.spines["right"].set_visible(False)
@@ -108,7 +121,6 @@ def plot_emoji_emotions_monthly(chat: data.Chat, size=(1000, 500), title="Emoji 
         # set font sizes for plot
         plotlib.rc("xtick", labelsize=BIGGER_FONT)
         plotlib.rc("ytick", labelsize=BIGGER_FONT)
-        plotlib.rc("legend", fontsize=NORMAL_FONT)
 
         emotion_at = 0
         for emotion in fe.Emoji.all_emotions:
@@ -123,9 +135,9 @@ def plot_emoji_emotions_monthly(chat: data.Chat, size=(1000, 500), title="Emoji 
         # axis settings
         extreme_axes.xaxis.set_major_formatter(ticker.FuncFormatter(x_major_tick_formatter))
 
-        # TODO: title not inside the plot. Internet does not know how to do it
-        figure.suptitle(title + " (" + participant + ")")
-        plotlib.show()
+        figure.suptitle(title + " (" + participant + ")", size=BIGGER_FONT * 2, y=0.99)
+
+        _save_plot(figure, os.path.join("out", chat.name, "emoji_monthly_" + participant.replace(" ", "_") + ".png"))
 
 
 def plot_message_distribution(chat: data.Chat, size=(1000, 500), title="Message distribution"):
@@ -189,7 +201,7 @@ def plot_message_distribution(chat: data.Chat, size=(1000, 500), title="Message 
     axes.spines["right"].set_visible(False)
     axes.spines["top"].set_visible(False)
 
-    plotlib.show()
+    _save_plot(figure, os.path.join("out", chat.name, "message_distribution.png"))
 
 
 def plot_emojis_per_participant_yearly(chat: data.Chat, image_width=1000, emoji_size=100,
@@ -214,7 +226,7 @@ def plot_emojis_per_participant_yearly(chat: data.Chat, image_width=1000, emoji_
 
     for participant in chat.participants:
         _save_emojis_yearly(msg_emojis[participant.name], image_width, emoji_size,
-                            output_path=output_path + "emojis_yearly_" + participant.name.replace(" ", "_"),
+                            output_path=os.path.join(output_path, chat.name, "emojis_yearly_" + participant.name.replace(" ", "_")),
                             title="Emojis yearly by " + participant.name)
 
 
@@ -236,7 +248,7 @@ def plot_emojis_per_participant(chat: data.Chat, image_width=1000, emoji_size=10
         # we need to convert them to Emoji classes so we know where the image file is
         emojis = list(filter(lambda a: a is not None, map(fe.facebook_emojis.get_emoji, str_emojis[participant.name])))
         _save_emojis(emojis, image_width, emoji_size,
-                     output_path=output_path + "emojis_all_" + participant.name.replace(" ", "_"),
+                     output_path=os.path.join(output_path, chat.name, "emojis_all_" + participant.name.replace(" ", "_")),
                      title="All emojis by " + participant.name)
 
 
@@ -428,7 +440,7 @@ def _plot_for_each_participant(chat: data.Chat, x_axes: [], values: {str: []}, t
         plotlib.rc("legend", fontsize=BIGGER_FONT)
 
         # create plotlib classes
-        plotlib.figure(figsize=(size[0] / 96, size[1] / 96))
+        figure = plotlib.figure(figsize=(size[0] / 96, size[1] / 96))
         axes: plotlib.Axes = plotlib.axes()
 
         # set title if one was given
@@ -442,7 +454,7 @@ def _plot_for_each_participant(chat: data.Chat, x_axes: [], values: {str: []}, t
 
         axes.legend(loc="upper left", fancybox=True, framealpha=1, shadow=True, borderpad=0.5)
 
-        plotlib.show()
+        _save_plot(figure, os.path.join("out", chat.name, title.replace(" ", "_") + ".png"))
 
 
 colors = ["#B71C1C", "#4527A0", "#1565C0", "#2E7D32", "#EF6C00", "#4E342E", "#212121"]

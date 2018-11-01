@@ -82,7 +82,7 @@ class ChatCommandLine(con_inp.ConsoleInput):
         return {"chat": new_chat}
 
     def enter_markov_command_line(self, chat: data.Chat, switches: [str]):
-        layer_count = 3
+        layer_count = 2
         try:
             if len(switches) >= 1:
                 layer_count = int(switches[-1])
@@ -93,59 +93,146 @@ class ChatCommandLine(con_inp.ConsoleInput):
         markov_cmd_line.start_command_line()
 
     def chart(self, chat: data.Chat, switches: [str]):
+        # try out with: chart -m -c -s 2000x1000 -d -s 1000x3000 -e -ey -s 500x500 -em -s 1000x2000 -sa 1200x600
+        # DATA
         width = 1000
         height = 600
         emoji_per_row = 15
+        wh_defined_by_user = False
 
-        try:
-            at = switches.index("-s")
+        # Recommended sizes for the charts. If no size is given by user theses will be used
+        chart_data = {
+            "-d": (1500, 1000),
+            "-m": (1500, 1000),
+            "-c": (1500, 1000),
+            "-e": 1500,
+            "-ey": 1500,
+            "-em": (1000, 1500)
+        }
+
+        # what chart switch sizes does the user override?
+        user_override_size: {str: (int, int)} = {}
+
+        # what to execute when a switch is given
+        execute_for_switch = {
+            "-d": lambda width, height: data_visualizer.plot_message_distribution(chat, size=(width, height)),
+            "-m": lambda width, height: data_visualizer.plot_activity_msg(chat, size=(width, height)),
+            "-c": lambda width, height: data_visualizer.plot_activity_char(chat, size=(width, height)),
+            "-e": lambda width, height: data_visualizer.plot_emojis_per_participant(chat, width,
+                                                                                    emoji_size=width // emoji_per_row),
+            "-ey": lambda width, height: data_visualizer.plot_emojis_per_participant_yearly(
+                chat, width, emoji_size=width // emoji_per_row
+            ),
+            "-em": lambda width, height: data_visualizer.plot_emoji_emotions_monthly(chat, size=(width, height))
+        }
+
+        def split_size(size_str: str) -> (int, int):
+            """
+            Splits a given string to width and height by splitting at 'x'. If there is no x in the string but
+            is still a number the height will be calculated. May throw ValueError
+            """
+            split = size_str.split("x")
+
+            if len(split) > 1:  # [width]x[height]
+                width = int(split[0])
+                height = int(split[1])
+            else:
+                width = int(switches[at + 1])
+                height = int(width * (2/3))
+
+            return width, height
+
+        # ALGORITHM
+        # this defines the size for all charts
+        if "-sa" in switches:
+            at = switches.index("-sa")
 
             try:
-                if len(switches) > at + 1:
-                    split = switches[at + 1].split("x")
-                    if len(split) > 1:  # [width]x[height]
-                        width = int(split[0])
-                        height = int(split[1])
-                    else:
-                        width = int(switches[at + 1])
-                        height = int(width * (2/3))
+                if at <= len(switches):
+                    width, height = split_size(switches[at + 1])
+
+                    wh_defined_by_user = True
+                else:
+                    print(Fore.RED + "There is no size given after -sa switch!" + Fore.RESET)
             except ValueError:
                 print(Fore.RED + "Integer values need to be provided for the -s switch in chart!" + Fore.RESET)
                 return
-        except ValueError:
-            pass
 
-        try:
+        # this can override a size for a chart if it is after a charting switch
+        if "-s" in switches:
+            # we get all the indices where -s can be found
+            indices = list(filter(lambda i: switches[i] == "-s", range(len(switches))))
+
+            for i in indices:
+                # there can be no chart switch before this -> error then ignore
+                if i <= 0:
+                    print(Fore.RED + "You need to apply -s to a charting switch (by adding -s after one)!" + Fore.RESET)
+                    continue
+
+                before_switch = switches[i - 1]
+                # the switch before the -s one is not a chart switch -> error, skip
+                if before_switch not in execute_for_switch:
+                    print(Fore.RED + "You need to apply -s to a charting switch (by adding -s after one)!" + Fore.RESET)
+                    continue
+
+                # there is no size after -s switch -> error, skip
+                if i >= len(switches):
+                    print(Fore.RED + "You need to specify a size after -s!" + Fore.RESET)
+                    continue
+
+                # we can safely split the size now, but we still need to check for parsing errors
+                try:
+                    user_override_size[before_switch] = split_size(switches[i + 1])
+                except ValueError:
+                    print(Fore.RED + "The size after -s is not an integer!" + Fore.RESET)
+                    continue
+
+        # emoji per row count
+        if "-r" in switches:
             at = switches.index("-r")
 
             if len(switches) > at + 1:
                 emoji_per_row = int(switches[at + 1])
-        except ValueError:
-            pass
 
+        # if no switches were given then we need to plot everything
         do_all_plot = len(switches) == 0
 
-        if do_all_plot or "-d" in switches:
-            data_visualizer.plot_message_distribution(chat, size=(width, height))
-        if do_all_plot or "-m" in switches:
-            data_visualizer.plot_activity_msg(chat, size=(width, height))
-        if do_all_plot or "-c" in switches:
-            data_visualizer.plot_activity_char(chat, size=(width, height))
-        if do_all_plot or "-e" in switches:
-            data_visualizer.plot_emojis_per_participant(chat, width, emoji_size=width // emoji_per_row)
-        if do_all_plot or "-ey" in switches:
-            data_visualizer.plot_emojis_per_participant_yearly(chat, width, emoji_size=width // emoji_per_row)
-        if do_all_plot or "-em" in switches:
-            data_visualizer.plot_emoji_emotions_monthly(chat, size=(width, height))
+        # go through all switches and check for ones that are chart switches
+        for switch in execute_for_switch:
+            if do_all_plot or switch in execute_for_switch:
+                # width/height needs to be defined by the developer, of course it has to be the user doesn't know what's
+                # really good for them, only I, the mighty coder, am able to know that.
+                if not wh_defined_by_user:
+                    size = chart_data[switch]
+                    # size can either be an int or a tuple, based on that we need to pass it to the lambdas
+                    execute_for_switch[switch](size if isinstance(size, int) else size[0],
+                                               0 if isinstance(size, int) else size[1])
+                else:  # user defined width and height
+                    # user may have overridden -sa for this chart
+                    overridden_size = user_override_size.get(switch, None)
+
+                    # size was not overridden
+                    if overridden_size is None:
+                        execute_for_switch[switch](width, height)
+                    else:  # size was overridden
+                        new_width, new_height = overridden_size
+                        execute_for_switch[switch](new_width, new_height)
+
+                # success message for saving the chart to file
+                print(Fore.LIGHTGREEN_EX + "Chart(s) for " + switch + " is done..." + Fore.RESET)
 
     def print_message_count(self, chat: data.Chat, switches: [str]):
+        out = ""
+
         if "-p" in switches:
             for participant in chat.participants:
                 participant_msg = list(filter(lambda msg: msg.sender == participant.name, chat.messages))
 
-                print(participant.name + ": " + str(len(participant_msg)))
+                out += participant.name + ": " + str(len(participant_msg)) + "\n"
         else:
-            print("Message count: " + str(len(chat.messages)))
+            out += "Message count: " + str(len(chat.messages))
+
+        return {"output-string": out}
 
     def filter_chat(self, chat: data.Chat, switches: [str]) -> {}:
         # FILTER DATE
@@ -209,6 +296,8 @@ class ChatCommandLine(con_inp.ConsoleInput):
                 output += msg.str_for_user() + "\n"
 
             return output
+        elif "output-string" in kwargs:
+            return kwargs["output-string"]
         else:
             return super()._get_write_string(kwargs, switches)
 
@@ -304,10 +393,11 @@ class ChatCommandLine(con_inp.ConsoleInput):
         table.add_row(most_used_emoji_text)
         table.add_row(most_used_emotion_text)
 
-        print("*************************************************************")
-        print("Chatting started at " + str(between_dates[0].date()) + " ended (so far) at " + str(between_dates[1].date()))
-        print(get_string_wrapped(table, 150, 1))
-        print("*************************************************************")
+        out = ""
+        out += "Chatting started at " + str(between_dates[0].date()) + " ended (so far) at " + str(between_dates[1].date())
+        out += get_string_wrapped(table, 150, 1)
+
+        return {"output-string": out}
 
     @staticmethod
     def help_emoji():
@@ -357,16 +447,19 @@ class ChatCommandLine(con_inp.ConsoleInput):
     @staticmethod
     def help_chart():
         # chart
-        print("Make charts with \t chart")
-        print("\t You can omit all the switches to get every chart.")
-        print("\t Chart message count with \t -m")
-        print("\t Chart character count with \t -c")
-        print("\t Chart message distribution over hours with \t -d")
-        print("\t Chart emojis with \t -e")
-        print("\t Chart emojis yearly with with \t -ey")
-        print("\t Chart emoji emotions with \t -em")
-        print("\t For count charting:")
-        print("\t\t Specify size with \t -s [width](x[height])")
-        print("\t For emoji charting:")
-        print("\t\t Specify size with (height will be decided by how many emojis there are) \t -s [width]")
-        print("\t\t Specify how many emojis per row with \t -r [value]")
+        print("""Make charts with \t chart
+        \t You can omit all the switches to get every chart.
+        \t Chart message count with \t -m
+        \t Chart character count with \t -c
+        \t Chart message distribution over hours with \t -d
+        \t Chart emojis with \t -e
+        \t Chart emojis yearly with with \t -ey
+        \t Chart emoji emotions with \t -em
+        \t Sizing:
+        \t\t You can specify sizes for all charts with \t -sa [width](x[height])
+        \t\t\t For emoji and emoji yearly charting height will be ignored. If only width is given then that will be used to calculate the height.
+        \t\t You can specify size for one chart, overriding the -sa switch by adding a -s switch after the chart's switch.
+        \t\t\t Example: chart -m -c -em -s 1000x2000 -sa 2000x1000
+        \t\t\t Here the -m and -c will be 2000x1000 but the -em will be 1000x2000
+        \t For emoji charting:
+        \t\t Specify how many emojis per row with \t -r [value]""")

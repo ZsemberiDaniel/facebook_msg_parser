@@ -1,5 +1,5 @@
 import re
-from typing import Any, Callable
+from typing import Callable
 
 from emoji import emojize
 

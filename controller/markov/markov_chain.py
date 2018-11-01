@@ -79,9 +79,18 @@ class MarkovChain:
             raise ValueError("Layer count cannot be lower than 1!")
 
         self.messages = messages
+        self._layer_count = 0
         self.layer_count = layer_count
         # At the end of the dictionary tree there is a MarkovState that has only words as values
         self._all_states: MarkovState = None
+
+    @property
+    def layer_count(self):
+        return self._layer_count
+
+    @layer_count.setter
+    def layer_count(self, value: int):
+        self._layer_count = value + 1
 
     def get_words(self, count: int) -> [str]:
         self._assert_built()
@@ -116,7 +125,6 @@ class MarkovChain:
             Returns the next word's state using only using_word_count amount of words form the end of words_before array
             """
             # we need to traverse down the MarkovState tree if we can
-            # if we get stuck somewhere just
             curr_state = self._all_states
 
             # if there won't be enough words to traverse down the whole tree then just don't bother
@@ -230,6 +238,7 @@ class MarkovChain:
                     chain[key] = (chain[key][0], markov_state_from_dictionary(key, chain[key][1]))
             else:
                 for key in chain.keys():
+                    convert_all(chain[key][1], layer_at + 1)
 
                     # we convert the tuples of (how_many_after_word, dicts) to MarkovStates
                     tuples = []

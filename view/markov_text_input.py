@@ -6,7 +6,7 @@ from colorama import Fore
 
 
 class ChatMarkovData:
-    def __init__(self, chat: data.Chat, layer_count=3):
+    def __init__(self, chat: data.Chat, layer_count=2):
         self.chat = chat
         self.layer_count = layer_count
         self.for_participants: {str: markov_chain.MarkovChain} = {}

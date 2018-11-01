@@ -163,5 +163,10 @@ class EmojiAnalyzerConsole(console_input.ConsoleInput):
 
     @staticmethod
     def help_top():
-        print("""You can get the top emojis with \t top [count]
+        print("""You can get the top emojis with \t top
         \t You can specify how many emojis you want returned with \t -c [count]""")
+
+    @staticmethod
+    def help_overtime():
+        print("""You can get the top emoji emotions over time with \t overtime
+        \t You can get it monthly via \t -m""")
