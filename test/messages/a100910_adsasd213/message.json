@@ -1,0 +1,133 @@
+{
+  "participants": [
+    {
+      "name": "John Bohn"
+    },
+    {
+      "name": "My boy"
+    },
+    {
+      "name": "Dat boi"
+    },
+    {
+      "name": "Mario Smith"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "John Bohn",
+      "timestamp_ms": 1538722892779,
+      "content": "instant \u00c3\u00b6sszebaszva",
+      "type": "Generic"
+    },
+    {
+      "sender_name": "John Bohn",
+      "timestamp_ms": 1538722887539,
+      "content": "tegnap este felmosok bent, mi fogad reggel",
+      "type": "Generic"
+    },
+    {
+      "sender_name": "John Bohn",
+      "timestamp_ms": 1538722876882,
+      "content": "nah\u00c3\u00a1t nah\u00c3\u00a1t nah\u00c3\u00a1t",
+      "type": "Generic"
+    },
+    {
+      "sender_name": "John Bohn",
+      "timestamp_ms": 1538722870817,
+      "content": "S\u00c3\u00a1ndor sent a photo.",
+      "photos": [
+        {
+          "uri": "messages/A100910_23a22fd132/photos/43143275_2118082271840038_330625916726149120_n_2118082228506709.jpg",
+          "creation_timestamp": 1538722869
+        }
+      ],
+      "type": "Generic"
+    },
+    {
+      "sender_name": "Mario Smith",
+      "timestamp_ms": 1538403882213,
+      "content": "De zavar\u00c3\u00b3, de mint mondtam nagyon neh\u00c3\u00a9z r\u00c3\u00a1 \u00c3\u00bcgyelni. N\u00c3\u00a1lunk is felmostam, az is biztos seg\u00c3\u00adt, hogy innen kevesebb cucc megy be",
+      "type": "Generic"
+    },
+    {
+      "sender_name": "John Bohn",
+      "timestamp_ms": 1538403840118,
+      "content": "ez t\u00c3\u00a9ged nem zavar?",
+      "type": "Generic"
+    },
+    {
+      "sender_name": "John Bohn",
+      "timestamp_ms": 1538403831045,
+      "content": "csak hi\u00c3\u00a1ba csin\u00c3\u00a1lod meg ha azt\u00c3\u00a1n meg egyb\u00c5\u0091l \u00c3\u00b6ssze van baszva",
+      "type": "Generic"
+    },
+    {
+      "sender_name": "John Bohn",
+      "timestamp_ms": 1538403813561,
+      "content": "S\u00c3\u00a1ndor: \u00f3\u00b0\u0080\u0080",
+      "sticker": {
+        "uri": "messages/stickers_used/39178562_1505197616293642_5411344281094848512_n_369239263222822.png"
+      },
+      "type": "Generic"
+    },
+    {
+      "sender_name": "Mario Smith",
+      "timestamp_ms": 1538403806577,
+      "content": "Vas\u00c3\u00a1rnap m\u00c3\u00a9g vegyszerrel is megcsin\u00c3\u00a1lam",
+      "type": "Generic"
+    },
+    {
+      "sender_name": "Mario Smith",
+      "timestamp_ms": 1538403787508,
+      "content": "\u00c3\u0089n vas\u00c3\u00a1rnap m\u00c3\u00a1r felmostam meg amikor van id\u00c5\u0091m akkor megcsin\u00c3\u00a1lom",
+      "type": "Generic"
+    },
+    {
+      "sender_name": "John Bohn",
+      "timestamp_ms": 1538403708309,
+      "content": "benc\u00c3\u00a9t pl egyszer nem l\u00c3\u00a1ttam m\u00c3\u00a9g hogy csin\u00c3\u00a1lna b\u00c3\u00a1rmi munk\u00c3\u00a1t is",
+      "type": "Generic"
+    },
+    {
+      "sender_name": "John Bohn",
+      "timestamp_ms": 1538403691483,
+      "content": "minden h\u00c3\u00a9ten nekem kell felmossak kezdem unni szerinted mi\u00c3\u00a9rt vagyok kiakadva?",
+      "type": "Generic"
+    },
+    {
+      "sender_name": "Mario Smith",
+      "timestamp_ms": 1538403610484,
+      "content": "Completely missing the point. De am\u00c3\u00bagy lehet, valaki bemegy tiszta l\u00c3\u00a1bbal elmegy a ti ajt\u00c3\u00b3tok el\u00c3\u00a9 azt\u00c3\u00a1n kij\u00c3\u00b6n a mi ajt\u00c3\u00b3nk fel\u00c3\u00a9, ha m\u00c3\u00a1r ennyire szeretn\u00c3\u00a9l ujjal mutogatni. Ha megold\u00c3\u00a1st szeretn\u00c3\u00a9nk a probl\u00c3\u00a9m\u00c3\u00a1ra ez szerintem nem vezet sehov\u00c3\u00a1. Mind a k\u00c3\u00a9t szoba hib\u00c3\u00a1s ebben, akarattal, akaratlanul sz\u00c3\u00b3val felv\u00c3\u00a1ltva ki kell takar\u00c3\u00adtani",
+      "type": "Generic"
+    },
+    {
+      "sender_name": "John Bohn",
+      "timestamp_ms": 1538403384265,
+      "content": "mert ha a csapig megyek akkor nyilv\u00c3\u00a1n az \u00c3\u00a9n l\u00c3\u00a1bamr\u00c3\u00b3l m\u00c3\u00a1szik el a ti ajt\u00c3\u00b3tok el\u00c3\u00a9",
+      "type": "Generic"
+    },
+    {
+      "sender_name": "Mario Smith",
+      "timestamp_ms": 1538402989070,
+      "content": "\u00c3\u0089n soha nem megyek be azzal, mi\u00c3\u00a9rt csak mi lehett\u00c3\u00bcnk? Meg am\u00c3\u00bagy is n\u00c3\u00a9ha nem tudsz mit csin\u00c3\u00a1lni behordod ami rajta van a l\u00c3\u00a1badon, mert a papucsod sem teljesen tiszta, a l\u00c3\u00a1bad sem teljesen tiszta. K\u00c3\u00bcl\u00c3\u00b6n lav\u00c3\u00b3rt kellene fenntartani a f\u00c3\u00bcrd\u00c5\u0091szoba el\u00c5\u0091tt mint a strandon szokott lenni a medence el\u00c5\u0091tt hogy bent mindig minden tiszta legyen.",
+      "type": "Generic"
+    },
+    {
+      "sender_name": "John Bohn",
+      "timestamp_ms": 1538401770715,
+      "content": "S\u00c3\u00a1ndor named the group A1009-10.",
+      "type": "Generic"
+    },
+    {
+      "sender_name": "John Bohn",
+      "timestamp_ms": 1538401762749,
+      "content": "R\u00c3\u00a1k bel\u00c3\u00a9tek megint behordta valaki a gecis sarat a f\u00c3\u00bcrd\u00c5\u0091szob\u00c3\u00a1ba, a 10es szoba fel\u00c5\u0091l. Tanulj\u00c3\u00a1tok m\u00c3\u00a1r meg hogy nem megy\u00c3\u00bcnk be a nedves f\u00c3\u00bcrd\u00c5\u0091szob\u00c3\u00a1ba a koszos, poros cip\u00c5\u0091vel mert leoldja r\u00c3\u00b3la. Takar\u00c3\u00adts\u00c3\u00a1tok fel.",
+      "type": "Generic"
+    }
+  ],
+  "title": "A1009-10",
+  "is_still_participant": true,
+  "thread_type": "RegularGroup",
+  "thread_path": "A100910_23a22fd132"
+}

@@ -8,41 +8,56 @@ class ConsoleCommand:
     def __init__(self, names: [str], function_to_execute: Callable,
                  help_function: Callable[[], None]=None):
         """
-
+        A command used in the ConsoleInput
         :param names: Aliases for the command
         :param function_to_execute: Takes in three parameters: console itself, switches used in command,
                                     other data in kwargs. Should handle the command
         :param help_function: Takes in no parameters and should handle writing out the help of the functions
         """
+        if len(names) is 0:
+            raise ValueError("There needs to be at leas one name given to the command!")
+
         self.names = names
         self.function_to_execute = function_to_execute
         self.help_function = help_function
 
+    def __eq__(self, other):
+        if isinstance(other, ConsoleCommand):
+            return self.names == other.names
+        else:
+            return False
+
 
 class ConsoleInput:
-    command_quit = ConsoleCommand(
-        ["quit", "q"],
-        lambda console, switches, kwargs: console.quit(),
-        lambda: ConsoleInput._print_quit_help()
-    )
-    command_help = ConsoleCommand(
-        ["help", "h"],
-        lambda console, switches, kwargs: console.help(switches),
-        lambda: ConsoleInput._print_help_help()
-    )
-    command_write = ConsoleCommand(
-        ["write", "w"],
-        lambda cmd_line, switches, kwargs: cmd_line.write(kwargs, switches),
-        lambda: ConsoleInput.help_write()
-    )
-
     def __init__(self):
+        self.command_quit = ConsoleCommand(
+            ["quit", "q"],
+            lambda console, switches, kwargs: console.quit(),
+            lambda: ConsoleInput._print_quit_help()
+        )
+        self.command_help = ConsoleCommand(
+            ["help", "h"],
+            lambda console, switches, kwargs: console.help(switches),
+            lambda: ConsoleInput._print_help_help()
+        )
+        self.command_write = ConsoleCommand(
+            ["write", "w"],
+            lambda cmd_line, switches, kwargs: cmd_line.write(kwargs, switches),
+            lambda: ConsoleInput.help_write()
+        )
+
         self._commands_dict = {}
         self.commands_all: [ConsoleCommand] = []
         self._console_running = False
         self.command_line_name = "command line"
 
         self.add_commands(self.command_quit, self.command_help, self.command_write)
+
+    def __eq__(self, other):
+        if isinstance(other, ConsoleInput):
+            return self.commands_all == other.commands_all and self.command_line_name == other.command_line_name
+        else:
+            return False
 
     def add_command(self, command: ConsoleCommand):
         """
@@ -69,13 +84,14 @@ class ConsoleInput:
     def get_next_command(self) -> str:
         return input("" + self.command_line_name + " : ")
 
-    def split_command(self, cmd: str) -> [str]:
+    @staticmethod
+    def split_command(cmd: str) -> [str]:
         # split by whitespaces except when the whitespace is in quotes
         # we need to map the tuple because of the word found is in quotes it will be in the snd of the tuple
         return list(map(lambda t: t[0] if len(t[1]) == 0 else t[1],
                         re.findall(r"(\"(.*)\"|\S+)", cmd.strip())))
 
-    def start_command_line(self, **kwargs):
+    def start_command_line(self):
         """
         Starts the command line and passes the kwargs to the process command method
         """
@@ -83,16 +99,17 @@ class ConsoleInput:
         self.print_welcome_message()
 
         while self._console_running:
-            self.process_command(self.get_next_command(), kwargs=kwargs)
+            self.process_command(self.get_next_command())
 
-    def process_command(self, commands, **kwargs):
+    def process_command(self, commands, **kwargs) -> {}:
         """
         Processes the given command while passing the switches and the kwargs to the function of the command
+        :returns The kwargs at the end of the pipeline
         """
         pipeline = commands.split("||")
 
         for command in pipeline:
-            split = self.split_command(command)
+            split = ConsoleInput.split_command(command)
 
             if len(split) <= 0:
                 print("No command given!")
@@ -111,6 +128,8 @@ class ConsoleInput:
                     # copy the kwargs so we can keep any that has not been modified
                     for key in new_kwargs.keys():
                         kwargs[key] = new_kwargs[key]
+
+        return kwargs
 
     def _get_write_string(self, kwargs, switches: [str]) -> str:
         """
@@ -158,7 +177,10 @@ class ConsoleInput:
 
         for cmd in self.commands_all:
             if (switches is None or len(switches) <= 0 and "help" not in cmd.names) or _is_any_in_switches(cmd.names):
-                cmd.help_function()
+                if cmd.help_function is not None:
+                    cmd.help_function()
+                else:
+                    print(cmd.names[0] + " has no help function!")
 
     def quit(self):
         """

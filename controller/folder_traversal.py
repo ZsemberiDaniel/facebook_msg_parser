@@ -5,7 +5,8 @@ from data import data
 # Returns the Chat objects made from the given folder
 def traverse_folder(folder_path) -> [data.Chat]:
     # get the folders from messages class
-    folders = [folder.lower() for folder in os.listdir(folder_path)]
+    folders = [folder.lower() for folder in filter(lambda dir: os.path.isdir(os.path.join(folder_path, dir)),
+                                                   os.listdir(folder_path))]
     folders.sort()
 
     # get the name from the folder: name_someNumber

@@ -24,9 +24,10 @@ You need Python 3 for this application to work and you need to download your fac
   * [Texttable 1.4.0](https://pypi.org/project/texttable/) - for easily writing tables to console
   * [Emoji 0.5.1](https://pypi.org/project/emoji/) - for finding emojis and their unicode name
   * [Matplotlib 3.0.1](https://pypi.org/project/matplotlib/) - for plotting
-  * [PIL 1.1.6](https://pypi.org/project/PIL/) - for handling images easily
+  * [PIL 5.3.0](https://pypi.org/project/PIL/) - for handling images easily
   * [Sortedcontainers 2.0.5](https://pypi.org/project/sortedcontainers/) - for sorted lists
   * [Pyfiglet 0.7.6](https://pypi.org/project/pyfiglet/) - for ASCII character arts
+  * [FTFY 5.5.0](https://github.com/LuminosoInsight/python-ftfy) - for fixing text encodings
 
 ### How to download facebook messages
 
@@ -50,7 +51,7 @@ this application.
 You need to start `main.py` with the messages folder given to it as a parameter. After that you'll be taken to a console
 ([choose chat console](#choose-chat-console)) where you can choose which chat you want to analyze.
 
-### Definitions
+### Important definitions
 
   * response: response here is used as chunks of messages which are not separated by another person's message.
   * overnight messages: messages that are a response to a message from the day before.
@@ -59,9 +60,9 @@ You need to start `main.py` with the messages folder given to it as a parameter.
 Pipelines: you can easily chain commands via the `||` pipe symbol. For example `filter -d 2018.1.1 || write`/
 `f -d 2018.1.1 || w` pipes the result of filter to a write function, which writes it out to the console.
 
-Note that if you can enter another command line with a command you can pipe that command inputs as well and then
+Note that if you can enter another command line with a command you can pipe another command's inputs and then
 only the remaining data will be used to start the command line. This is useful for example when you only want to
-enter with this year's data: `filter -d 2018.1.1 || cmd`.
+enter with this year's data: `filter -d 2018.1.1 || cmd_line`.
 
 In this application a command won't write it's contents out just by calling the command, you usually need to pipe it to
 the write command.
@@ -272,3 +273,51 @@ You can also add a welcome and a quit message to the console.
 The console above is implemented in the other consoles with help functions as static functions and command
 execution function as member function. At the top of the class all commands can be seen, and then easily followed
 to the help or execution function.
+
+##### Console manager
+
+The console manager can be used to manage more consoles easily. With this the consoles have no need to start their own
+child consoles because this manager starts it for them. This has the advantage of being able to reach the current and
+other consoles from the whole application and not just from the parent console. (Good for testing for example).
+
+The manager runs on a separate thread and does the input handling instead of the consoles themselves. You can also
+switch between consoles on the fly, and simply put the other console in the background.
+
+### Testing
+In this application testing is used to test the commands in the command lines with edge cases and more complex commands.
+Python unittests are used and all of them are in the `test` directory with conversations used for testing in `test.messages`.
+All tests can be executed with `all_tests.py`.
+
+For now testing the algorithms themselves is not implemented because in my opinion it's unnecessary to write test cases
+for simple counting, max and min search algorithms. All the edge cases are tested via the command line.
+
+## Oh god why
+With the help of piping you can chain commands together which you may have not expected work:
+
+```
+basic || write || filter -d 2018.1.1 || write -f "out.txt" || search -i -r "p[eo]*p" || write || markov 2 || count -p || write
+```
+
+This gets executed and does the following in order:
+  1. Writes out basic information about the chat `basic || write`
+  2. Filters for messages after 2018.1.1 then writes them out to out.txt `f -d 2018.1.1 || w -f "out.txt"`
+  3. Searches for the regex `p[eo]*p` with ignored case and then writes out the result (Note that this only searches
+  in messages after 2018.01.01) `s -e -r "p[eo]*p" || w`
+  4. Enters the markov command line with a layer count of 2 `markov 2`
+  5. Counts the messages for each participant (that are left after filter and search) and then writes them out
+  `count -p || write`
+  6. After all that we are in the markov command line and we can do whatever we want in there
+  
+I'm not completely sure why you would do something like the command above (maybe this tool gets taught somewhere and
+and the command above is a good test question), but hey, it works so please use stupid commands like the one above.
+
+##### Entering multiple command lines
+You can do
+```
+markov 1 || markov 2 || markov 3 || markov 4 || markov 5 || markov 6 (...)
+```
+as many times as you want. You can also sprinkle other consoles in there. This will result, first of all, if you did
+it just enough times in your computer crashing. After restart you do it too many times again, so it crashes again.
+Third time you get the number right and you have yourself, what I call is a console-ception. You have a console inside
+another console inside another console inside... You get it. The console you are currently in is the last one.
+You can quit from them via `quit`/`q`. Have fun and be safe!

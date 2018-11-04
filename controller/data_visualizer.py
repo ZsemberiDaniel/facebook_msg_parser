@@ -17,6 +17,8 @@ title_color = (38, 50, 56, 255)
 year_font = ImageFont.truetype(os.path.join(ROOT_DIR, "fonts", "Roboto-Regular.ttf"), 24)
 year_color = (69, 90, 100, 255)
 
+default_save_dir = "out"
+
 
 def _save_plot(figure: plotlib.Figure, path: str):
     """
@@ -25,7 +27,7 @@ def _save_plot(figure: plotlib.Figure, path: str):
     # if we want to create the file to a non-existent directory make one
     parent_dir = os.path.abspath(os.path.join(path, os.pardir))
     if not os.path.exists(parent_dir):
-        os.mkdir(parent_dir)
+        os.makedirs(parent_dir, exist_ok=True)
 
     figure.savefig(path)
 
@@ -70,7 +72,7 @@ def plot_emoji_emotions_monthly(chat: data.Chat, size=(1000, 500), title="Emoji 
         return "{:04d}-{:02d}".format(dt.year, dt.month)
 
     for participant in per_participant:
-        figure: plotlib.Figure = plotlib.figure(figsize=(size[0] / 96, size[1] / 96))
+        figure: plotlib.Figure = plotlib.figure(figsize=(size[0] / 96, size[1] / 96), dpi=96)
 
         # we are making a grid of subplots based on all the emotions that can be conveyed so we base the row and
         # column count on the emotion count
@@ -111,7 +113,8 @@ def plot_emoji_emotions_monthly(chat: data.Chat, size=(1000, 500), title="Emoji 
                 axes.xaxis.set_major_formatter(ticker.FuncFormatter(x_major_tick_formatter))
 
                 # the ticks for the y axis. We don't want too many, so we divide by 'n' to get exactly 'n'
-                y_ticks = list(range(0, max_per_participant[participant], max_per_participant[participant] // 4))
+                # the last argument we get the max of because if the tick count is too low (0) we get an error
+                y_ticks = list(range(0, max_per_participant[participant], max(1, max_per_participant[participant] // 4)))
                 axes.yaxis.set_ticks(y_ticks)
 
         # BEWARE! DANGER!
@@ -137,7 +140,9 @@ def plot_emoji_emotions_monthly(chat: data.Chat, size=(1000, 500), title="Emoji 
 
         figure.suptitle(title + " (" + participant + ")", size=BIGGER_FONT * 2, y=0.99)
 
-        _save_plot(figure, os.path.join("out", chat.name, "emoji_monthly_" + participant.replace(" ", "_") + ".png"))
+        _save_plot(figure, os.path.join(ROOT_DIR, default_save_dir, chat.name,
+                                        "emotion_monthly_" + participant.lower().replace(" ", "_") + ".png"))
+        plotlib.close(figure)
 
 
 def plot_message_distribution(chat: data.Chat, size=(1000, 500), title="Message distribution"):
@@ -147,7 +152,7 @@ def plot_message_distribution(chat: data.Chat, size=(1000, 500), title="Message 
     :param size: What size the chart should be
     :param title: What title to give the chart
     """
-    figure: plotlib.Figure = plotlib.figure(figsize=(size[0] / 96, size[1] / 96))
+    figure: plotlib.Figure = plotlib.figure(figsize=(size[0] / 96, size[1] / 96), dpi=96)
     axes: plotlib.Axes = plotlib.axes()
 
     axes.grid(True, axis="y", color="#546E7A", linestyle="dotted")
@@ -201,16 +206,15 @@ def plot_message_distribution(chat: data.Chat, size=(1000, 500), title="Message 
     axes.spines["right"].set_visible(False)
     axes.spines["top"].set_visible(False)
 
-    _save_plot(figure, os.path.join("out", chat.name, "message_distribution.png"))
+    _save_plot(figure, os.path.join(ROOT_DIR, default_save_dir, chat.name, "message_distribution.png"))
 
 
-def plot_emojis_per_participant_yearly(chat: data.Chat, image_width=1000, emoji_size=100,
-                                       output_path="out" + os.path.sep):
+def plot_emojis_per_participant_yearly(chat: data.Chat, image_width=1000, emoji_count_per_row=10):
     """
     Saves a separate image for each participant with their emojis for each year.
     :param chat: Which chat to plot
     :param image_width: The width of the image. The height will be calculated by how many emojis there are
-    :param emoji_size: How big an emoji should be on the image
+    :param emoji_count_per_row: How many emojis there are per row
     :param output_path: Where to save. This is without the name of the file bit with a separator at the end.
     :return: None
     """
@@ -225,17 +229,18 @@ def plot_emojis_per_participant_yearly(chat: data.Chat, image_width=1000, emoji_
         msg_emojis[participant] = new_list
 
     for participant in chat.participants:
-        _save_emojis_yearly(msg_emojis[participant.name], image_width, emoji_size,
-                            output_path=os.path.join(output_path, chat.name, "emojis_yearly_" + participant.name.replace(" ", "_")),
+        _save_emojis_yearly(msg_emojis[participant.name], image_width, emoji_count_per_row,
+                            output_path=os.path.join(ROOT_DIR, default_save_dir, chat.name,
+                                                     "emojis_yearly_" + participant.name.lower().replace(" ", "_")),
                             title="Emojis yearly by " + participant.name)
 
 
-def plot_emojis_per_participant(chat: data.Chat, image_width=1000, emoji_size=100, output_path="out" + os.path.sep):
+def plot_emojis_per_participant(chat: data.Chat, image_width=1000, emoji_count_per_row=10):
     """
     Saves a separate image for each participant with all of their emojis in chronological order.
     :param chat: Which chat to plot
     :param image_width: The width of the image. The height will be calculated by how many emojis there are
-    :param emoji_size: How big an emoji should be on the image
+    :param emoji_count_per_row: How many emojis there are in a row
     :param output_path: Where to save. This is without the name of the file bit with a separator at the end.
     :return: None
     """
@@ -247,8 +252,9 @@ def plot_emojis_per_participant(chat: data.Chat, image_width=1000, emoji_size=10
     for participant in chat.participants:
         # we need to convert them to Emoji classes so we know where the image file is
         emojis = list(filter(lambda a: a is not None, map(fe.facebook_emojis.get_emoji, str_emojis[participant.name])))
-        _save_emojis(emojis, image_width, emoji_size,
-                     output_path=os.path.join(output_path, chat.name, "emojis_all_" + participant.name.replace(" ", "_")),
+        _save_emojis(emojis, image_width, emoji_count_per_row,
+                     output_path=os.path.join(ROOT_DIR, default_save_dir, chat.name,
+                                              "emojis_all_" + participant.name.lower().replace(" ", "_")),
                      title="All emojis by " + participant.name)
 
 
@@ -262,14 +268,13 @@ def _plot_emojis_header(image_width: int, padding: (int, int), title: str) -> Im
     """
     #                   padding          title height
     header_height = int(padding[1] * 2 + title_font.getsize(title)[1] * 1.5)
-    #               padding
-    header_width = image_width + 2 * padding[0]
+    header_width = image_width
 
     created_title = Image.new("RGBA", (header_width, header_height), color="white")
 
     # draw the title
     img_draw = ImageDraw.ImageDraw(created_title)
-    img_draw.text((5, 5), title, font=title_font, fill=title_color)
+    img_draw.text((0, 0), title, font=title_font, fill=title_color)
 
     return created_title
 
@@ -284,12 +289,11 @@ def _plot_emojis(emojis: [fe.Emoji], image_width: int, emoji_size: int, padding:
     :return: An image object
     """
     # how many emojis there are for each line in the image
-    emoji_count_per_line = image_width // emoji_size
+    emoji_count_per_line = (image_width - 2 * padding[0]) // emoji_size
 
     # how many lines there are in the image
     line_count = int(ceil(len(emojis) / emoji_count_per_line))
 
-    image_width += padding[0] * 2
     image_height = emoji_size * line_count + padding[1] * 2
 
     # create new image
@@ -315,7 +319,7 @@ def _plot_emojis(emojis: [fe.Emoji], image_width: int, emoji_size: int, padding:
     return created_image
 
 
-def _save_emojis_yearly(emojis: [(fe.Emoji, int)], image_width, emoji_size, output_path, title, padding=(10, 10)):
+def _save_emojis_yearly(emojis: [(fe.Emoji, int)], image_width, emoji_per_row, output_path, title, padding=(10, 10)):
     """
     Plots the emojis yearly from the given list which is expected to be sorted by the tuples's second variable, which
     is the year.
@@ -331,12 +335,17 @@ def _save_emojis_yearly(emojis: [(fe.Emoji, int)], image_width, emoji_size, outp
 
         return y_image
 
+    # we calculate the size of one emoji image
+    emoji_size = (image_width - padding[0] * 2) // emoji_per_row
+
+    # we adjust the x padding, because there may be more because of the integer division above
+    padding = ((image_width - (emoji_size * emoji_per_row)) // 2, padding[1])
+
     # default stuff for each participant
-    header_image = _plot_emojis_header(image_width, padding, title)
+    header_image = _plot_emojis_header(image_width - padding[0] * 2, (0, 0), title)
     year_images: [Image.Image] = []
 
-    image_width += padding[0] * 2
-    image_height = header_image.size[1]
+    image_height = header_image.size[1] + padding[1]
 
     # collect each year's emojis in this list
     emojis_by_year: {int, [fe.Emoji]} = {}
@@ -371,21 +380,26 @@ def _save_emojis_yearly(emojis: [(fe.Emoji, int)], image_width, emoji_size, outp
     _save_image(created_image, output_path)
 
 
-def _save_emojis(emojis: [fe.Emoji], image_width, emoji_size, output_path, title, padding=(10, 10)):
-    header_image = _plot_emojis_header(image_width, padding, title)
-    emoji_image = _plot_emojis(emojis, image_width, emoji_size, padding)
+def _save_emojis(emojis: [fe.Emoji], image_width, emoji_per_row, output_path, title, padding=(10, 10)):
+    # we calculate the size of one emoji image
+    emoji_size = (image_width - padding[0] * 2) // emoji_per_row
+
+    # we adjust the x padding, because there may be more because of the integer division above
+    padding = ((image_width - (emoji_size * emoji_per_row)) // 2, padding[1])
+
+    # plot these with the padding in mind
+    header_image = _plot_emojis_header(image_width - padding[0] * 2, (0, 0), title)
+    emoji_image = _plot_emojis(emojis, image_width - padding[0] * 2, emoji_size, (0, 0))
 
     #              emoji table size      title size
-    image_height = emoji_image.size[1] + header_image.size[1]
-    #              padding
-    image_width += 2 * padding[0]
+    image_height = emoji_image.size[1] + header_image.size[1] * 2
 
     # create new image
     created_image: Image = Image.new("RGBA", (image_width, image_height), color="white")
 
     # copy header
-    created_image.paste(header_image, (0, 0))
-    created_image.paste(emoji_image, (0, header_image.size[1]))
+    created_image.paste(header_image, (padding[0], padding[0]))
+    created_image.paste(emoji_image, (padding[0], header_image.size[1]))
 
     _save_image(created_image, output_path)
 
@@ -397,7 +411,7 @@ def _save_image(image: Image.Image, path: str):
     # if we want to create the file to a non-existent directory make one
     parent_dir = os.path.abspath(os.path.join(path, os.pardir))
     if not os.path.exists(parent_dir):
-        os.mkdir(parent_dir)
+        os.makedirs(parent_dir, exist_ok=True)
 
     # save image
     image.save(path + ".png")
@@ -410,7 +424,7 @@ def plot_activity_char(chat: data.Chat, size=(1000, 750)):
     dates = chat_analyzer.all_days(chat)
     counts_each_participant = chat_analyzer.character_count_per_participant_by_day(chat)
 
-    _plot_for_each_participant(chat, dates, counts_each_participant, title="Character counts", size=size)
+    _plot_for_each_participant(chat, dates, counts_each_participant, title="Character count", size=size)
 
 
 def plot_activity_msg(chat: data.Chat, size=(1000, 750)):
@@ -420,7 +434,7 @@ def plot_activity_msg(chat: data.Chat, size=(1000, 750)):
     dates = chat_analyzer.all_days(chat)
     counts_each_participant = chat_analyzer.message_count_per_participant_by_day(chat)
 
-    _plot_for_each_participant(chat, dates, counts_each_participant, title="Message counts", size=size)
+    _plot_for_each_participant(chat, dates, counts_each_participant, title="Message count", size=size)
 
 
 def _plot_for_each_participant(chat: data.Chat, x_axes: [], values: {str: []}, title=None, size=(1000, 750)):
@@ -440,7 +454,7 @@ def _plot_for_each_participant(chat: data.Chat, x_axes: [], values: {str: []}, t
         plotlib.rc("legend", fontsize=BIGGER_FONT)
 
         # create plotlib classes
-        figure = plotlib.figure(figsize=(size[0] / 96, size[1] / 96))
+        figure = plotlib.figure(figsize=(size[0] / 96, size[1] / 96), dpi=96)
         axes: plotlib.Axes = plotlib.axes()
 
         # set title if one was given
@@ -454,7 +468,8 @@ def _plot_for_each_participant(chat: data.Chat, x_axes: [], values: {str: []}, t
 
         axes.legend(loc="upper left", fancybox=True, framealpha=1, shadow=True, borderpad=0.5)
 
-        _save_plot(figure, os.path.join("out", chat.name, title.replace(" ", "_") + ".png"))
+        _save_plot(figure, os.path.join(ROOT_DIR, default_save_dir, chat.name, title.lower().replace(" ", "_") + ".png"))
+        plotlib.close(figure)
 
 
 colors = ["#B71C1C", "#4527A0", "#1565C0", "#2E7D32", "#EF6C00", "#4E342E", "#212121"]

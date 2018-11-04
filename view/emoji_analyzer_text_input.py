@@ -63,25 +63,27 @@ class Emoji(FEmoji):
 
 
 class EmojiAnalyzerConsole(console_input.ConsoleInput):
-    command_top = console_input.ConsoleCommand(
-        ["top", "t"],
-        lambda console, switches, kwargs: console.top_emojis(kwargs["chat"], switches),
-        lambda: EmojiAnalyzerConsole.help_top()
-    )
-    command_over_time = console_input.ConsoleCommand(
-        ["overtime", "ot", "o"],
-        lambda console, switches, kwargs: console.emojis_over_time(kwargs["chat"], switches)
-    )
 
     def __init__(self, chat: data.Chat):
         super().__init__()
+
+        self.command_top = console_input.ConsoleCommand(
+            ["top", "t"],
+            lambda console, switches, kwargs: console.top_emojis(kwargs["chat"], switches),
+            lambda: EmojiAnalyzerConsole.help_top()
+        )
+        self.command_over_time = console_input.ConsoleCommand(
+            ["overtime", "ot", "o"],
+            lambda console, switches, kwargs: console.emojis_over_time(kwargs["chat"], switches)
+        )
+
         self.chat = chat
         self.command_line_name = "emoji analyzer"
 
         self.add_commands(self.command_top, self.command_over_time)
 
     def process_command(self, commands, **kwargs):
-        super().process_command(commands, chat=deepcopy(self.chat))
+        return super().process_command(commands, chat=deepcopy(self.chat))
 
     def _get_write_string(self, kwargs, switches: [str]):
         show_date = "-d" in switches
@@ -118,12 +120,13 @@ class EmojiAnalyzerConsole(console_input.ConsoleInput):
             # no number at end
             if count_switch_at + 1 >= len(switches):
                 print(Fore.RED + "You need to provide a number for -c in top!" + Fore.RESET)
-                return
+                return {}
 
             try:
                 count = int(switches[count_switch_at + 1])
             except ValueError:
                 print(Fore.RED + "A number needs to be provided for -c in top!" + Fore.RESET)
+                return {}
 
         most_used = chat_analyzer.emoji_strs_top_per_participant(chat, count)
         # map to Emoji object here

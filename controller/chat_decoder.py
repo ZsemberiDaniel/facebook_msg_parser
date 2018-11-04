@@ -2,9 +2,9 @@ import json
 import ftfy
 import os.path
 from definitions import is_current_decoding_version, DECODING_VERSION
-from unicodedata import normalize
 from data import data
 from colorama import Fore
+from copy import deepcopy
 
 
 def add_all_data(chat) -> data.Chat:
@@ -16,6 +16,7 @@ def add_all_data(chat) -> data.Chat:
     if chat is None or chat.msg_folder_path is None:
         raise ValueError("The given chat needs to have at least a message path.")
 
+    chat = deepcopy(chat)
     # indicates whether we could read the decoded file or not
     read_decoded = False
     # check whether we need to decode at all, because if there is a decoded_message.json that's version is
@@ -101,9 +102,7 @@ def decode_chat(dct, chat=None) -> data.Chat:
     for msg in msgs:
         chat.add_message_with_check(msg)
 
-    # rename with a better name
-    chat.name = normalize("NFD", dct.get("title", chat.name).lower()).encode("ASCII", "ignore").decode("UTF-8")\
-        .replace(" ", "-")
+    chat.name = dct.get("title", "no name")
 
     return chat
 

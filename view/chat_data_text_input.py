@@ -4,6 +4,7 @@ from view import emoji_analyzer_text_input
 from view import console_input as con_inp
 from controller import chat_analyzer
 from controller import data_visualizer
+from definitions import console_manager
 from pyfiglet import figlet_format
 from misc.texttable_misc import get_string_wrapped
 import texttable as tt
@@ -14,52 +15,53 @@ from colorama import Fore
 
 
 class ChatCommandLine(con_inp.ConsoleInput):
-    command_basic_data = con_inp.ConsoleCommand(
-        ["basic", "b"],
-        lambda cmd_line, switches, kwargs: cmd_line.print_basic(kwargs["chat"]),
-        lambda: ChatCommandLine.help_basic()
-    )
-    command_message_count = con_inp.ConsoleCommand(
-        ["count"],
-        lambda cmd_line, switches, kwargs: cmd_line.print_message_count(kwargs["chat"], switches),
-        lambda: ChatCommandLine.help_msg_count()
-    )
-    command_chart = con_inp.ConsoleCommand(
-        ["chart", "c"],
-        lambda cmd_line, switches, kwargs: cmd_line.chart(kwargs["chat"], switches),
-        lambda: ChatCommandLine.help_chart()
-    )
-    command_emojis = con_inp.ConsoleCommand(
-        ["emoji", "e"],
-        lambda cmd_line, switches, kwargs: cmd_line.only_emojis(kwargs["chat"], switches),
-        lambda: ChatCommandLine.help_emoji()
-    )
-    commands_filter = con_inp.ConsoleCommand(
-        ["filter", "f"],
-        lambda cmd_line, switches, kwargs: cmd_line.filter_chat(kwargs["chat"], switches),
-        lambda: ChatCommandLine.help_filter()
-    )
-    command_markov = con_inp.ConsoleCommand(
-        ["markov", "m"],
-        lambda cmd_line, switches, kwargs: cmd_line.enter_markov_command_line(kwargs["chat"], switches),
-        lambda: ChatCommandLine.help_markov()
-    )
-    command_search = con_inp.ConsoleCommand(
-        ["search", "s"],
-        lambda cmd_line, switches, kwargs: cmd_line.search(kwargs["chat"], switches[:-1], switches[-1]),
-        lambda: ChatCommandLine.help_search()
-    )
-
     def __init__(self, chat: data.Chat):
         super().__init__()
+
+        self.command_basic_data = con_inp.ConsoleCommand(
+            ["basic", "b"],
+            lambda cmd_line, switches, kwargs: cmd_line.print_basic(kwargs["chat"]),
+            lambda: ChatCommandLine.help_basic()
+        )
+        self.command_message_count = con_inp.ConsoleCommand(
+            ["count"],
+            lambda cmd_line, switches, kwargs: cmd_line.print_message_count(kwargs["chat"], switches),
+            lambda: ChatCommandLine.help_msg_count()
+        )
+        self.command_chart = con_inp.ConsoleCommand(
+            ["chart", "c"],
+            lambda cmd_line, switches, kwargs: cmd_line.chart(kwargs["chat"], switches),
+            lambda: ChatCommandLine.help_chart()
+        )
+        self.command_emojis = con_inp.ConsoleCommand(
+            ["emoji", "e"],
+            lambda cmd_line, switches, kwargs: cmd_line.only_emojis(kwargs["chat"], switches),
+            lambda: ChatCommandLine.help_emoji()
+        )
+        self.commands_filter = con_inp.ConsoleCommand(
+            ["filter", "f"],
+            lambda cmd_line, switches, kwargs: cmd_line.filter_chat(kwargs["chat"], switches),
+            lambda: ChatCommandLine.help_filter()
+        )
+        self.command_markov = con_inp.ConsoleCommand(
+            ["markov", "m"],
+            lambda cmd_line, switches, kwargs: cmd_line.enter_markov_command_line(kwargs["chat"], switches),
+            lambda: ChatCommandLine.help_markov()
+        )
+        self.command_search = con_inp.ConsoleCommand(
+            ["search", "s"],
+            lambda cmd_line, switches, kwargs: cmd_line.search(kwargs["chat"], switches),
+            lambda: ChatCommandLine.help_search()
+        )
+
         self.chat = chat
         self.command_line_name = "chat command line"
 
         self.add_commands(self.command_basic_data, self.command_message_count, self.command_chart, self.commands_filter,
-                          self.command_markov, self.command_search, self.command_write, self.command_emojis)
+                          self.command_markov, self.command_search, self.command_emojis)
 
     def process_command(self, commands, **kwargs):
-        super().process_command(commands, chat=deepcopy(self.chat))
+        return super().process_command(commands, chat=deepcopy(self.chat))
 
     def print_welcome_message(self):
         print("\n" + figlet_format(unicodedata.normalize("NFD", self.chat.name).encode("ASCII", "ignore")
@@ -70,8 +72,7 @@ class ChatCommandLine(con_inp.ConsoleInput):
 
         # analyzing emoji usage
         if "-a" in switches:
-            emoji_console = emoji_analyzer_text_input.EmojiAnalyzerConsole(new_chat)
-            emoji_console.start_command_line()
+            console_manager.add_console(emoji_analyzer_text_input.EmojiAnalyzerConsole(new_chat))
             return
 
         if "-onlyem" in switches or "-o" in switches:
@@ -89,8 +90,7 @@ class ChatCommandLine(con_inp.ConsoleInput):
         except ValueError:
             print(Fore.RED + "Layer count needs to be a number in markov command!" + Fore.RESET)
 
-        markov_cmd_line = markov_text_input.MarkovCommandLine(chat, layer_count)
-        markov_cmd_line.start_command_line()
+        console_manager.add_console(markov_text_input.MarkovCommandLine(chat, layer_count))
 
     def chart(self, chat: data.Chat, switches: [str]):
         # try out with: chart -m -c -s 2000x1000 -d -s 1000x3000 -e -ey -s 500x500 -em -s 1000x2000 -sa 1200x600
@@ -119,9 +119,9 @@ class ChatCommandLine(con_inp.ConsoleInput):
             "-m": lambda width, height: data_visualizer.plot_activity_msg(chat, size=(width, height)),
             "-c": lambda width, height: data_visualizer.plot_activity_char(chat, size=(width, height)),
             "-e": lambda width, height: data_visualizer.plot_emojis_per_participant(chat, width,
-                                                                                    emoji_size=width // emoji_per_row),
+                                                                                    emoji_count_per_row=emoji_per_row),
             "-ey": lambda width, height: data_visualizer.plot_emojis_per_participant_yearly(
-                chat, width, emoji_size=width // emoji_per_row
+                chat, width, emoji_count_per_row=emoji_per_row
             ),
             "-em": lambda width, height: data_visualizer.plot_emoji_emotions_monthly(chat, size=(width, height))
         }
@@ -137,7 +137,7 @@ class ChatCommandLine(con_inp.ConsoleInput):
                 width = int(split[0])
                 height = int(split[1])
             else:
-                width = int(switches[at + 1])
+                width = int(split[0])
                 height = int(width * (2/3))
 
             return width, height
@@ -148,15 +148,18 @@ class ChatCommandLine(con_inp.ConsoleInput):
             at = switches.index("-sa")
 
             try:
-                if at <= len(switches):
+                if at + 1 < len(switches):
                     width, height = split_size(switches[at + 1])
 
                     wh_defined_by_user = True
                 else:
                     print(Fore.RED + "There is no size given after -sa switch!" + Fore.RESET)
+
+                    return {"chat": chat}
             except ValueError:
-                print(Fore.RED + "Integer values need to be provided for the -s switch in chart!" + Fore.RESET)
-                return
+                print(Fore.RED + "Integer values need to be provided for the -sa switch in chart!" + Fore.RESET)
+
+                return {"chat": chat}
 
         # this can override a size for a chart if it is after a charting switch
         if "-s" in switches:
@@ -164,42 +167,59 @@ class ChatCommandLine(con_inp.ConsoleInput):
             indices = list(filter(lambda i: switches[i] == "-s", range(len(switches))))
 
             for i in indices:
-                # there can be no chart switch before this -> error then ignore
+                # there can be no chart switch before this
                 if i <= 0:
                     print(Fore.RED + "You need to apply -s to a charting switch (by adding -s after one)!" + Fore.RESET)
-                    continue
+
+                    return {"chat": chat}
 
                 before_switch = switches[i - 1]
-                # the switch before the -s one is not a chart switch -> error, skip
+                # the switch before the -s one is not a chart switch
                 if before_switch not in execute_for_switch:
                     print(Fore.RED + "You need to apply -s to a charting switch (by adding -s after one)!" + Fore.RESET)
-                    continue
 
-                # there is no size after -s switch -> error, skip
-                if i >= len(switches):
+                    return {"chat": chat}
+
+                # there is no size after -s switch
+                if i + 1 >= len(switches):
                     print(Fore.RED + "You need to specify a size after -s!" + Fore.RESET)
-                    continue
+
+                    return {"chat": chat}
 
                 # we can safely split the size now, but we still need to check for parsing errors
                 try:
                     user_override_size[before_switch] = split_size(switches[i + 1])
                 except ValueError:
                     print(Fore.RED + "The size after -s is not an integer!" + Fore.RESET)
-                    continue
+
+                    return {"chat": chat}
 
         # emoji per row count
         if "-r" in switches:
             at = switches.index("-r")
 
             if len(switches) > at + 1:
-                emoji_per_row = int(switches[at + 1])
+                try:
+                    emoji_per_row = int(switches[at + 1])
+                except ValueError:
+                    print(Fore.RED + "The count after -r is not an integer!" + Fore.RESET)
+
+                    return {"chat": chat}
 
         # if no switches were given then we need to plot everything
         do_all_plot = len(switches) == 0
 
         # go through all switches and check for ones that are chart switches
-        for switch in execute_for_switch:
+        for switch in switches:
             if do_all_plot or switch in execute_for_switch:
+                # user may have overridden -sa for this chart
+                overridden_size = user_override_size.get(switch, None)
+
+                if overridden_size is not None:  # size was overridden
+                    new_width, new_height = overridden_size
+                    execute_for_switch[switch](new_width, new_height)
+                    continue
+
                 # width/height needs to be defined by the developer, of course it has to be the user doesn't know what's
                 # really good for them, only I, the mighty coder, am able to know that.
                 if not wh_defined_by_user:
@@ -208,18 +228,12 @@ class ChatCommandLine(con_inp.ConsoleInput):
                     execute_for_switch[switch](size if isinstance(size, int) else size[0],
                                                0 if isinstance(size, int) else size[1])
                 else:  # user defined width and height
-                    # user may have overridden -sa for this chart
-                    overridden_size = user_override_size.get(switch, None)
-
-                    # size was not overridden
-                    if overridden_size is None:
-                        execute_for_switch[switch](width, height)
-                    else:  # size was overridden
-                        new_width, new_height = overridden_size
-                        execute_for_switch[switch](new_width, new_height)
+                    execute_for_switch[switch](width, height)
 
                 # success message for saving the chart to file
                 print(Fore.LIGHTGREEN_EX + "Chart(s) for " + switch + " is done..." + Fore.RESET)
+
+        return {"chat": chat}
 
     def print_message_count(self, chat: data.Chat, switches: [str]):
         out = ""
@@ -232,22 +246,24 @@ class ChatCommandLine(con_inp.ConsoleInput):
         else:
             out += "Message count: " + str(len(chat.messages))
 
-        return {"output-string": out}
+        return {"output-string": out, "chat": None}
 
     def filter_chat(self, chat: data.Chat, switches: [str]) -> {}:
         # FILTER DATE
-        try:
+        if "-d" in switches:
             date_in_array = switches.index("-d")
 
             # from date
-            if switches[date_in_array + 1] == "_":  # the from date was omitted
+            if len(switches) <= date_in_array + 1 or switches[date_in_array + 1] == "_":  # the from date was omitted
                 from_date = datetime.date(1990, 1, 1)
             else:
                 try:
                     f_year, f_month, f_day = map(int, switches[date_in_array + 1].split("."))
                 except ValueError:
                     print(Fore.RED + "Starting month should be in format YYYY.MM.DD!" + Fore.RESET)
-                    return
+
+                    chat.messages = []
+                    return {"chat": chat}
 
                 from_date = datetime.date(f_year, f_month, f_day)
 
@@ -261,16 +277,16 @@ class ChatCommandLine(con_inp.ConsoleInput):
                     t_year, t_month, t_day = map(int, switches[date_in_array + 2].split("."))
                 except ValueError:
                     print(Fore.RED + "Ending date should be in format YYYY.MM.DD!" + Fore.RESET)
-                    return
+
+                    chat.messages = []
+                    return {"chat": chat}
 
                 to_date = datetime.date(t_year, t_month, t_day)
 
             chat.messages = chat_analyzer.get_from_to_date(chat, from_date, to_date)
-        except ValueError:
-            pass
 
         # FILTER
-        try:
+        if "-p" in switches:
             participant_in_array = switches.index("-p")
 
             # if there was no parameter given after the -p switch then there are no participants to filter ->
@@ -280,9 +296,6 @@ class ChatCommandLine(con_inp.ConsoleInput):
 
             if len(to_filter_participants) > 0:
                 chat = chat_analyzer.get_messages_only_by(chat, to_filter_participants)
-
-        except ValueError:
-            pass
 
         return {"chat": chat}
 
@@ -301,7 +314,14 @@ class ChatCommandLine(con_inp.ConsoleInput):
         else:
             return super()._get_write_string(kwargs, switches)
 
-    def search(self, chat: data.Chat, switches: [str], word_or_regex: str) -> {}:
+    def search(self, chat: data.Chat, switches: [str]) -> {}:
+        if len(switches) > 0:
+            word_or_regex = switches[-1]
+        else:
+            print(Fore.RED + "There needs to be a search query for the search command!" + Fore.RESET)
+
+            return {"chat": chat}
+
         # based on the switches we can search in regex or
         if "-r" in switches:
             found_messages = chat_analyzer.search_in_messages(chat,
@@ -323,7 +343,7 @@ class ChatCommandLine(con_inp.ConsoleInput):
             print(Fore.YELLOW + "Nothing found that matches " + word_or_regex + Fore.RESET)
             chat.messages = []
 
-            return chat
+            return {"chat": chat}
 
         # got some results
         print(Fore.GREEN + "Found " + str(msg_count) + " matching messages" + Fore.RESET)
@@ -394,7 +414,9 @@ class ChatCommandLine(con_inp.ConsoleInput):
         table.add_row(most_used_emotion_text)
 
         out = ""
-        out += "Chatting started at " + str(between_dates[0].date()) + " ended (so far) at " + str(between_dates[1].date())
+        if between_dates[0] is not None and between_dates[1] is not None:
+            out += "Chatting started at " + str(between_dates[0].date()) + " ended (so far) at " +\
+                   str(between_dates[1].date()) + "\n"
         out += get_string_wrapped(table, 150, 1)
 
         return {"output-string": out}
@@ -422,7 +444,7 @@ class ChatCommandLine(con_inp.ConsoleInput):
         # filter
         print("Filter with \t filter")
         print("\t You can define a from and to date with \t -d [year.month.day] [year.month.day]")
-        print("\t\t If no to date is given then today will be the to date.")
+        print("\t\t If no to date is given (or _ is used) then today will be the to date.")
         print("\t\t You can omit the from date with '_'. If no from date is given then it will be written out from" +
               "the start of conversation.")
         print("\t You can filter for participant(s) with \t -p participant1(,participant2)(,participant3)(...),")

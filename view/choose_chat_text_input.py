@@ -2,6 +2,7 @@ from view import console_input
 from view import chat_data_text_input
 from controller import chat_decoder
 from data import data
+from definitions import console_manager
 
 from colorama import Fore
 
@@ -26,7 +27,7 @@ class ChooseChatCommandLine(console_input.ConsoleInput):
         self.add_commands(self.command_choose, self.command_filter)
 
     def process_command(self, commands, **kwargs):
-        super().process_command(commands, chats=self.chats)
+        return super().process_command(commands, chats=self.chats)
 
     def print_welcome_message(self):
         print(Fore.BLUE + """   \  |                                                                             |                         
@@ -79,6 +80,7 @@ class ChooseChatCommandLine(console_input.ConsoleInput):
             if chat.name == substr:
                 chosen_chat = chat
 
+        # no exact match
         if chosen_chat is None:
             if len(found) > 1:
                 print(Fore.YELLOW + "There are more than 1 names found with " + substr + " (" + str(len(found))
@@ -91,9 +93,14 @@ class ChooseChatCommandLine(console_input.ConsoleInput):
                 chosen_chat = found[0]
 
         # start chat command line
-        chosen_chat = chat_decoder.add_all_data(chosen_chat)
-        chat_command_line = chat_data_text_input.ChatCommandLine(chosen_chat)
-        chat_command_line.start_command_line()
+        try:
+            chosen_chat = chat_decoder.add_all_data(chosen_chat)
+            console_manager.add_console(chat_data_text_input.ChatCommandLine(chosen_chat))
+        except ValueError:
+            print(Fore.RED + "The given chat has no folder path assigned to it! Maybe restart the application?" +
+                  Fore.RESET)
+
+        return {"chats": [chosen_chat]}
 
     @staticmethod
     def help_choose():

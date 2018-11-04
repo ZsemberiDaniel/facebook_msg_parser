@@ -18,19 +18,19 @@ class ChatMarkovData:
 
 
 class MarkovCommandLine(console_input.ConsoleInput):
-    command_words = console_input.ConsoleCommand(
-        ["word", "words", "w"],
-        lambda cmd_line, switches, kwargs: cmd_line.words(switches),
-        lambda: MarkovCommandLine.help_words()
-    )
-    command_layer = console_input.ConsoleCommand(
-        ["layer", "la", "l"],
-        lambda cmd_line, switches, kwargs: cmd_line.layer_change(switches),
-        lambda: MarkovCommandLine.help_layer()
-    )
-
     def __init__(self, chat: data.Chat, layer_count: int):
         super().__init__()
+        self.command_words = console_input.ConsoleCommand(
+            ["word", "words", "w"],
+            lambda cmd_line, switches, kwargs: cmd_line.words(switches),
+            lambda: MarkovCommandLine.help_words()
+        )
+        self.command_layer = console_input.ConsoleCommand(
+            ["layer", "la", "l"],
+            lambda cmd_line, switches, kwargs: cmd_line.layer_change(switches),
+            lambda: MarkovCommandLine.help_layer()
+        )
+
         self.command_line_name = "markov command line"
         self.layer_count = layer_count
         self.markov_data = ChatMarkovData(chat, layer_count)
@@ -42,42 +42,40 @@ class MarkovCommandLine(console_input.ConsoleInput):
             new_layer = int(switches[-1])
         except ValueError:
             print(Fore.RED + "You need to give a number as the layer count" + Fore.RESET)
-            return
+            return {}
 
-        if new_layer < 0:
+        if new_layer < 1:
             print(Fore.RED + "You need to give a positive number as the layer count!" + Fore.RESET)
-            return
+            return {}
 
         self.layer_count = new_layer
         self.markov_data = ChatMarkovData(self.markov_data.chat, self.layer_count)
         print(Fore.GREEN + "Successfully changed layer count!" + Fore.RESET)
 
     def words(self, switches: [str]):
-        try:
-            count = int(switches[-1])
-        except IndexError:
+        if len(switches) > 0:
+            try:
+                count = int(switches[-1])
+            except ValueError:
+                print(Fore.RED + "The provided count for words needs to be an integer!" + Fore.RESET)
+                return {}
+        else:
             print(Fore.RED + "You need to provide a count for the words command!" + Fore.RESET)
-            return
+            return {}
 
-        try:
-            all_at = switches.index("-a")
+        if "-a" in switches:
+            words = self.markov_data.for_all.get_words(count)
 
-            # doesn't have the necessary value after -a
-            if len(switches) <= all_at:
-                print(Fore.RED + "You need to provide parameters for -a in the word command!" + Fore.RESET)
-                return
+            # there is a chance that no one talked, or talked only onw word, and the dictionary could not be built
+            return {"words_per_participant": {"All participants": 0 if words is None else words}}
 
-            return {"words_per_participant": {"All participants": self.markov_data.for_all.get_words(count)}}
-        except ValueError:
-            pass
-
-        try:
+        if "-p" in switches:
             part_at = switches.index("-p")
 
             # doesn't have the necessary value after -p
             if len(switches) <= part_at:
                 print(Fore.RED + "You need to provide parameters for -p in the word command!" + Fore.RESET)
-                return
+                return {}
 
             def contain_participant(name):
                 """
@@ -85,7 +83,7 @@ class MarkovCommandLine(console_input.ConsoleInput):
                 If it is in there then it returns the name. Otherwise return None
                 """
                 for participant in self.markov_data.chat.participants:
-                    if participant.name_matches_ascii(name):
+                    if participant.substring_in_ascii(name):
                         return participant.name
 
                 return None
@@ -95,13 +93,17 @@ class MarkovCommandLine(console_input.ConsoleInput):
                                            map(lambda name: contain_participant(name),
                                                switches[part_at + 1].split(","))
                                            ))
-        except ValueError:
-            # otherwise the default is generating for all participant
+        else:
             for_participants = map(lambda p: p.name, self.markov_data.chat.participants)
 
         out_words = {}
         for participant in for_participants:
-            out_words[participant] = self.markov_data.for_participants[participant].get_words(count)
+            words = self.markov_data.for_participants[participant].get_words(count)
+            if words is None:
+                print(Fore.RED + "No words could be generated for " + participant + ", maybe (s)he had no messages?")
+                out_words[participant] = []
+            else:
+                out_words[participant] = words
 
         return {"words_per_participant": out_words}
 

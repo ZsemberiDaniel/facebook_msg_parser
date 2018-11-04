@@ -25,6 +25,7 @@ class Emoji:
     def __init__(self, name: str, codes: [str], path: str, aliases: [str], emotions: [str]):
         self.name = name
         self.codes = codes
+        # absolute path
         self.path = path
         self.aliases = aliases
         # any of these: "love", "happy", "good", "neutral", "bad", "angry", "sad", "animal", "food", "meme", "kinky"

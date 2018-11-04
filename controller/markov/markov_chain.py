@@ -3,6 +3,7 @@ import re
 import unicodedata
 import emoji
 from data import data
+from typing import Union, List
 
 
 class MarkovState:
@@ -92,7 +93,15 @@ class MarkovChain:
     def layer_count(self, value: int):
         self._layer_count = value + 1
 
-    def get_words(self, count: int) -> [str]:
+    def get_words(self, count: int) -> Union[None, List[str]]:
+        """
+        Get count amount of words from this markov chain. If the markov chain could not be built for whatever reason
+        (maybe no messages were passed) it returns None
+        """
+        # we couldn't make a markov chain!
+        if len(self.messages) == 0:
+            return None
+
         self._assert_built()
 
         if count <= 0:

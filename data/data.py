@@ -8,6 +8,12 @@ class Reaction:
         self.actor = actor
         self.reaction = reaction
 
+    def __eq__(self, other):
+        if isinstance(other, Reaction):
+            return self.actor == other.actor and self.reaction == other.reaction
+        else:
+            return False
+
     def __str__(self):
         return self.actor + " reacted with " + self.reaction
 
@@ -79,7 +85,9 @@ class Message:
         if self is other:
             return True
         elif isinstance(self, Message) and isinstance(other, Message):
-            return self.sender == other.sender and self.time_stamp == other.time_stamp and self.content == other.content
+            return self.sender == other.sender and self.time_stamp == other.time_stamp and\
+                self.content == other.content and self._with_special == other._with_special and\
+                self.reactions == other.reactions and self.msg_type == other.msg_type
         else:
             return False
 
@@ -100,18 +108,18 @@ class Message:
         """
         Returns whether this message contains any media
         """
-        return self.msg_type.lower() == "generic" and\
-               (len(self._share) != 0 or len(self._photos) != 0 or len(self._gifs) != 0)
+        return self.msg_type.lower() != "generic" or \
+               len(self._share) != 0 or len(self._photos) != 0 or len(self._gifs) != 0 or len(self._share) != 0
 
 
 class Participant:
     def __init__(self, name=None):
         self.name = name
 
-    def name_matches_ascii(self, to_match: str):
+    def substring_in_ascii(self, to_match: str):
         """
-        Checks whether the given string matches the name in lower case ASCII form.
-        On to_match ASCII conversion and lower case conversion happens as well
+        Checks whether the given string is a substring of this name in lower case ASCII form.
+        On to_match param ASCII conversion and lower case conversion happens as well
         """
         return normalize("NFD", to_match.lower()).encode("ASCII", "ignore").decode("UTF-8") in \
                     normalize("NFD", self.name.lower()).encode("ASCII", "ignore").decode("UTF-8")
@@ -197,7 +205,7 @@ class Chat:
 
     def add_message_with_check(self, message: Message):
         """
-        Adds a message while checking that there is a participant with hte given name. If there isn't
+        Adds a message while checking that there is a participant with the given name. If there isn't
         then that is added as well.
         """
         self._messages.add(message)
@@ -208,6 +216,13 @@ class Chat:
     def __str__(self):
         return "Name: " + self.name + "\t Has media folder? " + str(self.has_media())
 
+    def __eq__(self, other):
+        if isinstance(other, Chat):
+            return self.messages == other.messages and self.participants == other.participants and \
+                   self.name == other.name
+        else:
+            return False
+
     def has_media(self):
         return self.media_folder_path is not None
 
@@ -217,6 +232,10 @@ class Chat:
         by the other respondents.
         """
         msg_ordered: [Message] = self.messages
+
+        # there are no messages in the chat
+        if len(msg_ordered) == 0:
+            return []
 
         curr_participant = msg_ordered[0].sender
         curr_chunk: [Message] = [msg_ordered[0]]

@@ -1,0 +1,22 @@
+{
+  "participants": [
+    {
+      "name": "Asker"
+    },
+    {
+      "name": "Answerer"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Asker",
+      "timestamp_ms": 1388783545756,
+      "content": "szia! k\u00c3\u00a9rlek seg\u00c3\u00adts nekem egy kicsit azzal, hogy szavazzol a k\u00c3\u00a9pemre. https://www.facebook.com/jnszm?sk=app_276686432417366&app_data=fullMzMwOTEx k\u00c3\u00b6sz\u00c3\u00b6n\u00c3\u00b6m sz\u00c3\u00a9pen.  :)",
+      "type": "Generic"
+    }
+  ],
+  "title": "Asker",
+  "is_still_participant": true,
+  "thread_type": "Regular",
+  "thread_path": "Asker_6694d53739"
+}

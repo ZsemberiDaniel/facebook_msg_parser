@@ -332,15 +332,24 @@ def _search_in_message_regex(chat: data.Chat, regex: str, ignore_case=False) -> 
 
     for msg in chat.messages:
         # naming it something random so it does not intersect with the user's groups
-        search = re.search("(?P<fyop>" + regex + ")", msg.content.lower() if ignore_case else msg.content)
+        searches = re.finditer("(?P<fyop>" + regex + ")", msg.content.lower() if ignore_case else msg.content,
+                           re.RegexFlag.MULTILINE)
 
-        if not msg.is_special_message() and search:
-            found_start = search.start("fyop")
-            found_end = search.end("fyop")
+        if not msg.is_special_message() and searches:
+            new_content = ""
+            last_end = 0
 
-            # adding coloring to the part where the substring was found
-            new_content = msg.content[:found_start] + Fore.GREEN + msg.content[found_start:found_end] + Fore.RESET \
-                           + msg.content[found_end:]
+            # we go through ach search and append to new_content till the end of the search
+            # at the end of the iteration we can append the rest of the content
+            for search in searches:
+                found_start = search.start("fyop")
+                found_end = search.end("fyop")
+
+                # adding coloring to the part where the substring was found
+                new_content += msg.content[last_end:found_start] + Fore.GREEN + msg.content[found_start:found_end] + Fore.RESET
+                last_end = found_end
+
+            new_content += msg.content[last_end:]
 
             # making a new message object so we don't modify the one given as parameter
             m = data.Message(msg.sender, msg.time_stamp, new_content, msg.msg_type)
@@ -397,7 +406,10 @@ def avg_character_count(chat: data.Chat) -> {str: float}:
 
     # average them
     for participant in chat.participants:
-        output[participant.name] = char_count[participant.name] / msg_count[participant.name]
+        if msg_count[participant.name] != 0:
+            output[participant.name] = char_count[participant.name] / msg_count[participant.name]
+        else:
+            output[participant.name] = 0
 
     return output
 
@@ -763,11 +775,14 @@ def active_dates(chat: data.Chat) -> [datetime.date]:
 
 def date_between(chat: data.Chat) -> (datetime.datetime, datetime.datetime):
     """
-    Returns between what dates the conversation went on
+    Returns between what dates the conversation went on. May return None if there were no messages in the chat
     """
     msgordered: [data.Message] = chat.messages
 
-    return msgordered[0].date, msgordered[len(msgordered) - 1].date
+    if len(msgordered) > 0:
+        return msgordered[0].date, msgordered[len(msgordered) - 1].date
+    else:
+        return None, None
 
 
 """_____________________________________________________________________________
@@ -779,7 +794,7 @@ def date_between(chat: data.Chat) -> (datetime.datetime, datetime.datetime):
 def get_messages_only_by(chat: data.Chat, participants: [str]) -> data.Chat:
     """
     Returns messages only by the participants that are given. The names are checked in lower case ascii form
-    and any of the given participants is a substring of
+    and if any of the given participant's name is a substring of any of the names given it returns that participant.
     """
     new_chat = data.Chat(chat.msg_folder_path, chat.media_folder_path, chat.name)
     # map filter participants to correct ascii lower case
