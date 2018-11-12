@@ -1,25 +1,26 @@
-from view import console_input
+from view.console import console_input
 from view import chat_data_text_input
 from controller import chat_decoder
 from data import data
-from definitions import console_manager
+from view.console.console_manager import console_manager
 
 from colorama import Fore
 
 
 class ChooseChatCommandLine(console_input.ConsoleInput):
-    command_choose = console_input.ConsoleCommand(
-        ["choose", "c"],
-        lambda console, switches, kwargs: console.choose(kwargs["chats"], switches),
-        lambda: ChooseChatCommandLine.help_choose()
-    )
-    command_filter = console_input.ConsoleCommand(
-        ["filter", "f"],
-        lambda console, switches, kwargs: console.filter(kwargs["chats"], switches),
-        lambda: ChooseChatCommandLine.help_filter()
-    )
-
     def __init__(self, chats: [data.Chat]):
+        self.command_choose = console_input.ConsoleCommand(
+            ["choose", "c"],
+            lambda console, switches, kwargs: console.choose(kwargs["chats"], switches),
+            lambda: ChooseChatCommandLine.help_choose(),
+            lambda switches, word: self.choose_auto_complete(switches, word)
+        )
+        self.command_filter = console_input.ConsoleCommand(
+            ["filter", "f"],
+            lambda console, switches, kwargs: console.filter(kwargs["chats"], switches),
+            lambda: ChooseChatCommandLine.help_filter()
+        )
+
         super().__init__()
         self.chats = chats
         self.command_line_name = "choose chat command line"
@@ -105,6 +106,13 @@ class ChooseChatCommandLine(console_input.ConsoleInput):
     @staticmethod
     def help_choose():
         print("""You can choose a chat with \t choose [substring_of_name]""")
+
+    def choose_auto_complete(self, switches: [str], curr_word: str) -> [str]:
+        # nothing before the current
+        if len(switches) == 0:
+            return [chat.name for chat in self.chats if curr_word in chat.name]
+        else:
+            return []
 
     @staticmethod
     def help_filter():

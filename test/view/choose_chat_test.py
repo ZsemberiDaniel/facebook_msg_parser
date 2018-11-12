@@ -1,6 +1,6 @@
 from view import choose_chat_text_input
 from data import data
-from definitions import console_manager
+from view.console.console_manager import console_manager
 
 from test.view.view_test import ViewTests
 

@@ -64,6 +64,8 @@ Note that if you can enter another command line with a command you can pipe anot
 only the remaining data will be used to start the command line. This is useful for example when you only want to
 enter with this year's data: `filter -d 2018.1.1 || cmd_line`.
 
+All consoles are capable of auto completion via the tab key. Command history is also available.
+
 In this application a command won't write it's contents out just by calling the command, you usually need to pipe it to
 the write command.
 
@@ -139,6 +141,11 @@ This is where most of the fun happens.
     * *-o*: rips the text from the messages (they only contain emojis)
     * *-a*: completely changes the behaviour of this command. With this you can enter the
     [emoji console](#emoji-console).
+  * **titles**: You can pipe forward the top titles, for example most loving person, etc.
+    * (If you omit which titles you want, you'll get all categories)
+    * *-p*: Write out people category
+    * *-m*: Write out month category
+    * *-c [count]*: How many titles you want to write out per category
 
 ### Markov console
 This console makes a Markov chain from your conversation. A markov chain analyzes the words you've used so far in this
@@ -163,8 +170,13 @@ With this console you can analyze the emojis in your chat.
 ##### Commands
   * **write**: by itself it's not interpreted
     * *-d*: the dates of the emojis are written out as well (if it makes sense to write them out)
+  * **filter**: works just like the filter command in the chat data console.
   * **top**: pipes top emojis per participant forward
     * *-c [count]*: how many emojis to forward
+  * **overtime**: pipe forward the emojis/emotions overtime. That means which was the top emoji in a given month over
+  the period, when the chat was active.
+    * *-t*: if you want emotions instead of emojis with this switch.
+    * *-m*: if you want the time period (for which we check the top) to be one month, add this switch.
 
 # How the code works
 MVC approach was used for dividing the code into parts.
@@ -201,7 +213,15 @@ The ones that provide data for the view:
     functions, misc functions.
     * All the functions require a chat instance but may return different values. Some return values can be
     quite complex, so when in doubt refer to the function documentation.
+  * title_analyzer.py
+    * Contains function which give out titles to the different attributes of a chat.
+    * Each function can be given a category. For example there are function that return titles for the people
+    in the chat (Most loving one, Most educated one, etc.).
+    * Each of these categories have a separate collect function, which collects all the titles into one list
+    and gives them the names, and a top function, which returns the ones which best fit the chat.
     
+##### Markov chains
+
 Markov chains are implemented in the `controller.markov.markov_chain.py` file. A `MarkovChain` has a `MarkovState`
 variable which has transitions to other `MarkovState`s. It depends on the `layer_count` how many times we can go
 down this tree of `MarkovState`s. For example if the `layer_count` is 3 then there are 2 `MarkovState`s which have
@@ -282,6 +302,26 @@ other consoles from the whole application and not just from the parent console. 
 
 The manager runs on a separate thread and does the input handling instead of the consoles themselves. You can also
 switch between consoles on the fly, and simply put the other console in the background.
+
+##### Command history
+Currently the built-in python command history functions are being used, which are in `readline`. In `console_init.py`
+the setup happens and all the commands are written to `.msg_parser_history`. All consoles share one command history,
+there is no separate command history for each console.
+
+##### Auto complete
+Auto completion is also available in the console via `readline`. All commands have a separate auto complete function
+and that gets called in `console_input.py` based on what we want to complete. If we only want to complete the current
+command then that gets handled by itself, but if we want to complete one of the parameters of the command then
+the function implemented by the user gets called, which should return a list of possible candidates for completion.
+
+The console manager also supports auto completion by setting and removing the correct auto completer when a console
+switch happens.
+
+##### Commands across consoles
+
+There are commands which can be used in more consoles. Those are grouped in `view.commands` package. They all have
+every function needed (command function itself, help function, auto complete, others if needed in the future)
+in the file itself.
 
 ### Testing
 In this application testing is used to test the commands in the command lines with edge cases and more complex commands.

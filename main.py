@@ -1,7 +1,7 @@
 from controller import folder_traversal
 from view import choose_chat_text_input
 from data import data
-from definitions import console_manager
+from view.console.console_manager import console_manager
 from colorama import init as colorama_init
 import sys
 

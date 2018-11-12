@@ -25,7 +25,7 @@ def get_string_wrapped(table: Texttable, size: int, fixed_col=0) -> str:
         curr_length = 0
         curr_line = 0
 
-        # we need to skip the "" ones in the front in case there are any
+        # we need to skip the empty string ones in the front in case there are any
         real_fixed_col = fixed_col
         while split[real_fixed_col - fixed_col] is "":
             real_fixed_col += 1

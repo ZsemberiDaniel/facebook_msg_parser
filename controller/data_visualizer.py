@@ -47,7 +47,7 @@ def plot_emoji_emotions_monthly(chat: data.Chat, size=(1000, 500), title="Emoji 
             per_participant[participant.name][emotion] = []
 
     # we need to map this data to per participants instead of per months
-    per_month: {datetime.date: {str: {str: int}}} = chat_analyzer.emoji_emotions_monthly(chat)
+    per_month: {datetime.date: {str: {str: int}}} = chat_analyzer.emoji_emotions_per_participant_monthly(chat)
 
     for month in per_month:
         for participant in per_month[month]:

@@ -1,5 +1,6 @@
 from sortedcontainers import SortedList
 from unicodedata import normalize
+from emoji import UNICODE_EMOJI
 import datetime
 
 
@@ -55,12 +56,28 @@ class Message:
         self._with_special += " (gif: " + value + " )"
 
     @property
+    def has_gif(self) -> bool:
+        return self.gif_count > 0
+
+    @property
+    def gif_count(self) -> int:
+        return len(self._gifs)
+
+    @property
     def photos(self):
         return self._photos
 
     def photos_add(self, value: str):
         self._photos.append(value)
         self._with_special += " (photo: " + value + " )"
+
+    @property
+    def has_photo(self) -> bool:
+        return self.photo_count > 0
+
+    @property
+    def photo_count(self) -> int:
+        return len(self._photos)
 
     @property
     def shares(self):
@@ -71,6 +88,14 @@ class Message:
         self._with_special += " (share: " + value + " )"
 
     @property
+    def has_share(self) -> bool:
+        return self.share_count > 0
+
+    @property
+    def share_count(self) -> int:
+        return len(self._share)
+
+    @property
     def reactions(self):
         return self._reactions
 
@@ -78,10 +103,25 @@ class Message:
         self._reactions.append(value)
 
     @property
+    def has_reaction(self) -> bool:
+        return self.reaction_count > 0
+
+    @property
+    def reaction_count(self):
+        return len(self._reactions)
+
+    @property
     def content_with_special(self) -> str:
         return self.content + self._with_special
 
-    def __eq__(self, other):
+    @property
+    def lower_case_ascii_content(self) -> str:
+        """Returns the content in lower case ascii form
+        """
+        return normalize("NFD", self.content.lower()).encode("ASCII", "ignore").decode("UTF-8")
+
+    def __eq__(self, other):\
+
         if self is other:
             return True
         elif isinstance(self, Message) and isinstance(other, Message):
@@ -105,11 +145,15 @@ class Message:
         return len(self.content)
 
     def is_special_message(self) -> bool:
-        """
-        Returns whether this message contains any media
+        """Returns whether this message contains any media
         """
         return self.msg_type.lower() != "generic" or \
                len(self._share) != 0 or len(self._photos) != 0 or len(self._gifs) != 0 or len(self._share) != 0
+
+    def contains_emoji(self) -> bool:
+        """Returns whether this message contains eny emojis
+        """
+        return any(map(lambda c: c in UNICODE_EMOJI, self.content))
 
 
 class Participant:
@@ -117,12 +161,15 @@ class Participant:
         self.name = name
 
     def substring_in_ascii(self, to_match: str):
-        """
-        Checks whether the given string is a substring of this name in lower case ASCII form.
+        """Checks whether the given string is a substring of this name in lower case ASCII form.
         On to_match param ASCII conversion and lower case conversion happens as well
         """
-        return normalize("NFD", to_match.lower()).encode("ASCII", "ignore").decode("UTF-8") in \
-                    normalize("NFD", self.name.lower()).encode("ASCII", "ignore").decode("UTF-8")
+        return normalize("NFD", to_match.lower()).encode("ASCII", "ignore").decode("UTF-8") in self.to_ascii_lowe_case()
+
+    def to_ascii_lowe_case(self) -> str:
+        """Returns the name in lower case ascii form
+        """
+        return normalize("NFD", self.name.lower()).encode("ASCII", "ignore").decode("UTF-8")
 
     def __eq__(self, other):
         if isinstance(other, Participant):
@@ -204,8 +251,7 @@ class Chat:
         self._messages.add(message)
 
     def add_message_with_check(self, message: Message):
-        """
-        Adds a message while checking that there is a participant with the given name. If there isn't
+        """Adds a message while checking that there is a participant with the given name. If there isn't
         then that is added as well.
         """
         self._messages.add(message)
@@ -227,8 +273,7 @@ class Chat:
         return self.media_folder_path is not None
 
     def get_responses(self):
-        """
-        Returns the responses in chronological order. A response is a chunk of message which are not broken
+        """Returns the responses in chronological order. A response is a chunk of message which are not broken
         by the other respondents.
         """
         msg_ordered: [Message] = self.messages

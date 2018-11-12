@@ -1,6 +1,4 @@
 import os
-from view.console_manager import ConsoleManager
-
 
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -16,5 +14,4 @@ def is_current_decoding_version(version: str):
     return version == DECODING_VERSION
 
 
-# the console manager for the whole application
-console_manager = ConsoleManager(quit_when_no_consoles_left=True)
+PIPELINE_STRING = "||"

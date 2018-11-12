@@ -2,7 +2,7 @@ from test.view.view_test import ViewTests
 from test.misc import get_random_participant_cmd_str
 
 from data import data
-from definitions import console_manager
+from view.console.console_manager import console_manager
 
 
 class MarkovTests(ViewTests):

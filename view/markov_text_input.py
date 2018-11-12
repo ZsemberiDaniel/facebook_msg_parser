@@ -1,7 +1,7 @@
 from data import data
 from controller import chat_analyzer
 from controller.markov import markov_chain
-from view import console_input
+from view.console import console_input
 from colorama import Fore
 
 
@@ -23,7 +23,8 @@ class MarkovCommandLine(console_input.ConsoleInput):
         self.command_words = console_input.ConsoleCommand(
             ["word", "words", "w"],
             lambda cmd_line, switches, kwargs: cmd_line.words(switches),
-            lambda: MarkovCommandLine.help_words()
+            lambda: MarkovCommandLine.help_words(),
+            lambda switches, word: self.auto_complete_words(switches, word)
         )
         self.command_layer = console_input.ConsoleCommand(
             ["layer", "la", "l"],
@@ -141,6 +142,24 @@ class MarkovCommandLine(console_input.ConsoleInput):
         \t You can specify for which participant(s) to generate the words with \t -p participant1(,part2)(,part3)(...)
         \t You can get words from the whole chat (involving all participants) with \t -a
         \t\t If participants are specified along with then still all participants will be included""")
+
+    def auto_complete_words(self, switches_before: [str], word: str) -> [str]:
+        if word.startswith("-"):
+            return [] if "-a" in switches_before else ["a", "p"]
+        elif len(switches_before) == 0:
+            return ["-p", "-a"]
+        else:
+            if switches_before[-1] == "-p":
+                # the one the user is currently typing (they are separated by ,)
+                curr_participant = word.split(",")[-1]
+
+                # we return the lower case ascii name if the given participant matches that
+                return [p.to_ascii_lowe_case().split(" ")[0] for p in self.markov_data.chat.participants
+                        if p.substring_in_ascii(curr_participant)]
+            elif "-a" in switches_before:
+                return []
+            else:
+                return ["-p", "-a"]
 
     def _print_help_help(self):
         print("""███████████▓▓▓▓▓▓▓▓▒░░░░░▒▒░░░░░░░▓█████\n██████████▓▓▓▓▓▓▓▓▒░░░░░▒▒▒░░░░░░░░▓████\n█████████▓▓▓▓▓▓▓▓▒░░░░░░▒▒▒░░░░░░░░░▓███\n████████▓▓▓▓▓▓▓▓▒░░░░░░░▒▒▒░░░░░░░░░░███\n███████▓▓▓▓▓▓▓▓▒░░▒▓░░░░░░░░░░░░░░░░░███\n██████▓▓▓▓▓▓▓▓▒░▓████░░░░░▒▓░░░░░░░░░███\n█████▓▒▓▓▓▓▓▒░▒█████▓░░░░▓██▓░░░░░░░▒███\n████▓▒▓▒▒▒░░▒███████░░░░▒████░░░░░░░░███\n███▓▒▒▒░░▒▓████████▒░░░░▓████▒░░░░░░▒███\n██▓▒▒░░▒██████████▓░░░░░▓█████░░░░░░░███\n██▓▒░░███████████▓░░░░░░▒█████▓░░░░░░███\n██▓▒░▒██████████▓▒▒▒░░░░░██████▒░░░░░▓██\n██▓▒░░▒███████▓▒▒▒▒▒░░░░░▓██████▓░░░░▒██\n███▒░░░░▒▒▒▒▒▒▒▒▒▒▒▒░░░░░░███████▓░░░▓██\n███▓░░░░░▒▒▒▓▓▒▒▒▒░░░░░░░░░██████▓░░░███\n████▓▒▒▒▒▓▓▓▓▓▓▒▒▓██▒░░░░░░░▓███▓░░░░███\n██████████▓▓▓▓▒▒█████▓░░░░░░░░░░░░░░████\n█████████▓▓▓▓▒▒░▓█▓▓██░░░░░░░░░░░░░█████\n███████▓▓▓▓▓▒▒▒░░░░░░▒░░░░░░░░░░░░██████\n██████▓▓▓▓▓▓▒▒░░░░░░░░░░░░░░░░▒▓████████\n██████▓▓▓▓▓▒▒▒░░░░░░░░░░░░░░░▓██████████\n██████▓▓▓▓▒▒██████▒░░░░░░░░░▓███████████\n██████▓▓▓▒▒█████████▒░░░░░░▓████████████\n██████▓▓▒▒███████████░░░░░▒█████████████\n██████▓▓░████████████░░░░▒██████████████\n██████▓░░████████████░░░░███████████████\n██████▓░▓███████████▒░░░████████████████\n██████▓░███████████▓░░░█████████████████\n██████▓░███████████░░░██████████████████\n██████▓▒██████████░░░███████████████████\n██████▒▒█████████▒░▓████████████████████\n██████░▒████████▓░██████████████████████\n██████░▓████████░███████████████████████\n██████░████████░▒███████████████████████\n█████▓░███████▒░████████████████████████\n█████▒░███████░▓████████████████████████\n█████░▒██████░░█████████████████████████\n█████░▒█████▓░██████████████████████████\n█████░▓█████░▒██████████████████████████\n█████░▓████▒░███████████████████████████\n█████░▓███▓░▓███████████████████████████\n██████░▓▓▒░▓████████████████████████████\n███████▒░▒██████████████████████████████\n████████████████████████████████████████\n████████████████████████████████████████""")

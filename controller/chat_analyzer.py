@@ -6,6 +6,7 @@ import unicodedata
 from colorama import Fore
 from data.facebook_emojis import facebook_emojis, Emoji as FEmoji
 
+
 """ ___________________________________________________________________________________________
                                         Emojis
     ___________________________________________________________________________________________
@@ -19,8 +20,7 @@ from data.facebook_emojis import facebook_emojis, Emoji as FEmoji
 
 
 def emoji_emotions_top_per_participant(chat: data.Chat, top: int = 1) -> {str: [(str, int)]}:
-    """
-    Returns for each participant what emotions (s)he wants to convey the most.
+    """Returns for each participant what emotions (s)he wants to convey the most.
     {participant: [(emotion, count)]}
     """
     # output and initialization of output
@@ -46,8 +46,7 @@ def emoji_emotions_top_per_participant(chat: data.Chat, top: int = 1) -> {str: [
 
 
 def emoji_strs_top_per_participant(chat: data.Chat, top: int = 1) -> {str: [(str, int)]}:
-    """
-    Returns the most used emojis for each participant. The number indicates how many emojis it
+    """Returns the most used emojis for each participant. The number indicates how many emojis it
     returns.
     """
     output: {str, [str]} = {}
@@ -67,8 +66,7 @@ def emoji_strs_top_per_participant(chat: data.Chat, top: int = 1) -> {str: [(str
 
 
 def emoji_emotion_count_per_participant(chat: data.Chat) -> {str: {str: int}}:
-    """
-    Returns for each participant how many times (s)he used the given emotions.
+    """Returns for each participant how many times (s)he used the given emotions.
     {participant: {emotion: count}}
     """
     # output and initialization of output
@@ -86,8 +84,7 @@ def emoji_emotion_count_per_participant(chat: data.Chat) -> {str: {str: int}}:
 
 
 def emoji_strs_each_count_per_participant(chat: data.Chat) -> {str: [(str, int)]}:
-    """
-    This function returns for each participant the grouped emoji count that means if the participant sent
+    """This function returns for each participant the grouped emoji count that means if the participant sent
     5 of the crying emoji the map will have {participant_name: [..., (:crying:, 5), ...]
     """
     output: {str: [(data.Message, int)]} = {}
@@ -124,8 +121,7 @@ def emoji_strs_each_count_per_participant(chat: data.Chat) -> {str: [(str, int)]
 
 
 def emoji_emotions_count(chat: data.Chat) -> {str: int}:
-    """
-    Returns what emotions can be found in the chat and how many times. If there is 0 of that emotion that WILL BE
+    """Returns what emotions can be found in the chat and how many times. If there is 0 of that emotion that WILL BE
     INCLUDED as well.
     """
     output: {str: int} = {}
@@ -140,8 +136,7 @@ def emoji_emotions_count(chat: data.Chat) -> {str: int}:
 
 
 def emoji_strs_count_per_participant(chat: data.Chat) -> {str: int}:
-    """
-    Returns how many emojis each participant sent in the chat
+    """Returns how many emojis each participant sent in the chat
     """
     output: {str, int} = {}
     all_emojis = emoji_messages_per_participant(chat)
@@ -152,17 +147,87 @@ def emoji_strs_count_per_participant(chat: data.Chat) -> {str: int}:
     return output
 
 
-def emoji_emotions_monthly(chat: data.Chat) -> {datetime.date: {str: {str: int}}}:
-    """
-    Returns for each month the chat was active, the per participant emotions conveyed by emojis.
-    {month: {participant: {emotion, count}}}
+def emoji_strs_per_participant_monthly(chat: data.Chat) -> {datetime.date: {str: {str: int}}}:
+    """Returns for each month the chat was active, the per participant emoji,
+    {month: {participant: {emoji: count}
     """
     months = all_months(chat)
     months.append(months[len(months) - 1] + datetime.timedelta(days=33))  # add an extra date for messages after last dt
     messages = emoji_messages(chat)
 
     # We go through the months and while the messages's date is smaller than the current month we add it to a dict
-    # of {participant: {emotion: count}}. msg_at represents where we are in the messages lst so we don't have to start
+    # of {participant: {emoji: count}}. msg_at represents where we are in the messages list so we don't have to start
+    # over each time.
+    output: {datetime.date: {str: {str: int}}} = {}
+    msg_at = 0
+    for month_at in range(1, len(months)):
+        month = months[month_at]  # we are currently adding emojis till this month
+        data: {str: {str: int}} = {}
+
+        # add all participants
+        for participant in chat.participants:
+            data[participant.name] = {}
+
+        # we go through the messages
+        while msg_at < len(messages) and messages[msg_at].date.date() < month:
+            msg = messages[msg_at]
+
+            # add one to the emoji count
+            data[msg.sender][msg.content] = data[msg.sender].get(msg.content, 0) + 1
+
+            msg_at += 1
+
+        # we reached the end of the emojis that are before the current month
+        output[months[month_at - 1]] = data
+
+    return output
+
+
+def emoji_emotions_monthly(chat: data.Chat) -> {datetime.date: {str: int}}:
+    """Returns for each month the chat was active, the per participant emotions conveyed by emojis.
+    {month: {emotion: count}}
+    """
+    months = all_months(chat)
+    months.append(months[len(months) - 1] + datetime.timedelta(days=33))  # add an extra date for messages after last dt
+    messages = emoji_messages(chat)
+
+    # We go through the months and while the messages's date is smaller than the current month we add it to a dict
+    # of {emotion: count}. msg_at represents where we are in the messages list so we don't have to start
+    # over each time.
+    output: {datetime.date: {str: int}} = {}
+    msg_at = 0
+    for month_at in range(1, len(months)):
+        month = months[month_at]  # we are currently adding emojis till this month
+        data: {str: int} = {}
+
+        # we go through the messages
+        while msg_at < len(messages) and messages[msg_at].date.date() < month:
+            msg = messages[msg_at]
+            # get emoji object
+            f_emoji_obj: FEmoji = facebook_emojis.get_emoji(emoji_map_to_str(msg))
+
+            # add one to all emotions this emoji conveys
+            for emotion in f_emoji_obj.emotions:
+                data[emotion] = data.get(emotion, 0) + 1
+
+            msg_at += 1
+
+        # we reached the end of the emojis that are before the current month
+        output[months[month_at - 1]] = data
+
+    return output
+
+
+def emoji_emotions_per_participant_monthly(chat: data.Chat) -> {datetime.date: {str: {str: int}}}:
+    """Returns for each month the chat was active, the per participant emotions conveyed by emojis.
+    {month: {participant: {emotion: count}}}
+    """
+    months = all_months(chat)
+    months.append(months[len(months) - 1] + datetime.timedelta(days=33))  # add an extra date for messages after last dt
+    messages = emoji_messages(chat)
+
+    # We go through the months and while the messages's date is smaller than the current month we add it to a dict
+    # of {participant: {emotion: count}}. msg_at represents where we are in the messages list so we don't have to start
     # over each time.
     output: {datetime.date: {str: {str: int}}} = {}
     msg_at = 0
@@ -193,8 +258,7 @@ def emoji_emotions_monthly(chat: data.Chat) -> {datetime.date: {str: {str: int}}
 
 
 def emoji_messages_per_participant(chat: data.Chat) -> {str: [data.Message]}:
-    """
-    Returns messages that only contain emoji(s) for each participant (the messages that contain emojis and text are
+    """Returns messages that only contain emoji(s) for each participant (the messages that contain emojis and text are
     mapped to containing only emojis)
     """
     output: {str: [data.Message]} = {}
@@ -212,8 +276,7 @@ def emoji_messages_per_participant(chat: data.Chat) -> {str: [data.Message]}:
 
 
 def emoji_whole_messages_per_participant(chat: data.Chat) -> {str: [data.Message]}:
-    """
-    Returns messages that contain emoji(s) for each participant
+    """Returns messages that contain emoji(s) for each participant
     """
     output: {str: [data.Message]} = {}
 
@@ -231,8 +294,7 @@ def emoji_whole_messages_per_participant(chat: data.Chat) -> {str: [data.Message
 
 
 def emoji_messages(chat: data.Chat) -> [data.Message]:
-    """
-    Returns all the messages that contain emojis but they no longer contain the text, only the emojis
+    """Returns all the messages that contain emojis but they no longer contain the text, only the emojis
     """
     def only_emojis(msg: data.Message) -> [data.Message]:
         msgs = []
@@ -250,32 +312,28 @@ def emoji_messages(chat: data.Chat) -> [data.Message]:
 
 
 def emoji_whole_messages(chat: data.Chat) -> [data.Message]:
-    """
-    Returns the messages that contain emojis in chronological order
+    """Returns the messages that contain emojis in chronological order
     """
     return list(filter(lambda msg: not msg.is_special_message() and re.search(emoji.get_emoji_regexp(), msg.content),
                        chat.messages))
 
 
 def emoji_map_to_strs_per_participant(data: {str: [data.Message]}) -> {str: [str]}:
-    """
-    After using one of the emoji methods that returns emoji messages per participant you can use this function to only
+    """After using one of the emoji methods that returns emoji messages per participant you can use this function to only
     get the emoji strings
     """
     return {name: emoji_map_to_strs(data[name]) for name in data}
 
 
 def emoji_map_to_strs(messages: [data.Message]) -> [str]:
-    """
-    After using one of the emoji methods you can use this to get only the emoji strings back, instead of the
+    """After using one of the emoji methods you can use this to get only the emoji strings back, instead of the
     message objects
     """
     return list(map(emoji_map_to_str, messages))
 
 
 def emoji_map_to_str(message: data.Message) -> str:
-    """
-    After using one of the emoji methods you can use this to get only the emoji string back, instead of the
+    """After using one of the emoji methods you can use this to get only the emoji string back, instead of the
     message object
     """
     return message.content
@@ -288,8 +346,7 @@ def emoji_map_to_str(message: data.Message) -> str:
 
 
 def _search_in_message_word(chat: data.Chat, word: str, ignore_case=False) -> {str: [data.Message]}:
-    """
-    Searches a word in the not special message contents
+    """Searches a word in the not special message contents
     :param chat: In which chat we want to search
     :param word: The word which we want to match
     :param ignore_case: Ignore cases or not?
@@ -317,8 +374,7 @@ def _search_in_message_word(chat: data.Chat, word: str, ignore_case=False) -> {s
 
 
 def _search_in_message_regex(chat: data.Chat, regex: str, ignore_case=False) -> {str: [data.Message]}:
-    """
-    Searches in the not special message contents with regex enabled
+    """Searches in the not special message contents with regex enabled
     :param chat: In which chat we want to search
     :param regex: The regex
     :param ignore_case: Ignore cases or not?
@@ -335,7 +391,10 @@ def _search_in_message_regex(chat: data.Chat, regex: str, ignore_case=False) -> 
         searches = re.finditer("(?P<fyop>" + regex + ")", msg.content.lower() if ignore_case else msg.content,
                            re.RegexFlag.MULTILINE)
 
-        if not msg.is_special_message() and searches:
+        # map iterator to a list so we know whether we have found something
+        searches = [s for s in searches]
+
+        if not msg.is_special_message() and len(searches) > 0:
             new_content = ""
             last_end = 0
 
@@ -360,8 +419,7 @@ def _search_in_message_regex(chat: data.Chat, regex: str, ignore_case=False) -> 
 
 def search_in_messages(chat: data.Chat, word: str = None, regex: str = None, ignore_case=False) ->\
         {str: [data.Message]}:
-    """
-    We search in the given messages either with regex or just a plain word. If the regex is given
+    """We search in the given messages either with regex or just a plain word. If the regex is given
     then that will be the preferred type.
     :param chat: The chat we want to search in
     :param word: Word we want to match
@@ -384,8 +442,7 @@ def search_in_messages(chat: data.Chat, word: str = None, regex: str = None, ign
 
 
 def character_count_per_participant_by_day(chat: data.Chat) -> {str: (datetime.date, int)}:
-    """
-    Returns for each participant how many characters (s)he sent on each day from the start of the conversation
+    """Returns for each participant how many characters (s)he sent on each day from the start of the conversation
     till today.
     """
     # this stores for each day how many messages were sent by each participant
@@ -395,14 +452,13 @@ def character_count_per_participant_by_day(chat: data.Chat) -> {str: (datetime.d
 
 
 def avg_character_count(chat: data.Chat) -> {str: float}:
-    """
-    This function returns how many characters each participant uses on average in each message
+    """This function returns how many characters each participant uses on average in each message
     It also omits the special messages which contain media
     """
 
     output: {str, float} = {}
     msg_count = message_count(chat)
-    char_count = character_count(chat)
+    char_count = character_count_per_participant(chat)
 
     # average them
     for participant in chat.participants:
@@ -415,8 +471,7 @@ def avg_character_count(chat: data.Chat) -> {str: float}:
 
 
 def character_by_day(chat: data.Chat) -> [(datetime.date, {str: int})]:
-    """
-    This function returns for each active day how many characters were exchanged by each participant
+    """This function returns for each active day how many characters were exchanged by each participant
     """
     output = []
     # messages in chronological order
@@ -443,9 +498,8 @@ def character_by_day(chat: data.Chat) -> [(datetime.date, {str: int})]:
     return output
 
 
-def character_count(chat: data.Chat) -> {str: int}:
-    """
-    Returns the sum of character counts for each participant in a chat. If the message is a special
+def character_count_per_participant(chat: data.Chat) -> {str: int}:
+    """Returns the sum of character counts for each participant in a chat. If the message is a special
     message (for example a photo or a gif) then that message won't be summed.
     """
     output: {str, int} = {}
@@ -468,8 +522,7 @@ def character_count(chat: data.Chat) -> {str: int}:
 
 
 def response_count(chat: data.Chat) -> {str: int}:
-    """
-    This function returns how many times each participant responded
+    """This function returns how many times each participant responded
     """
     responses = chat.get_responses()
     output: {str, int} = {}
@@ -485,8 +538,7 @@ def response_count(chat: data.Chat) -> {str: int}:
 
 
 def avg_response_time(chat: data.Chat) -> {str: float}:
-    """
-    This function calculates the average response times with the overnight responses taken into consideration.
+    """This function calculates the average response times with the overnight responses taken into consideration.
     May return None if there were no responses
     """
     # it will collect the sum in output and the count of responses to response_counter
@@ -521,8 +573,7 @@ def avg_response_time(chat: data.Chat) -> {str: float}:
 
 
 def avg_response_time_no_overnight(chat: data.Chat) -> {str: float}:
-    """
-    This function returns average response time for each participant. It is calculated by
+    """This function returns average response time for each participant. It is calculated by
     separating each day and calculating response time for each one and then averaging those.
     May return None if there were no responses.
     """
@@ -558,8 +609,7 @@ def avg_response_time_no_overnight(chat: data.Chat) -> {str: float}:
 
 
 def avg_response_time_by_day(chat: data.Chat) -> [(datetime.date, {str: float})]:
-    """
-    This function returns day by day how many seconds it took for each participant to respond on average
+    """This function returns day by day how many seconds it took for each participant to respond on average
     :param chat: The chat to analyze
     :return: A list of tuples of dates and data sorted in order. May return none if there were no responses
     """
@@ -586,8 +636,7 @@ def avg_response_time_by_day(chat: data.Chat) -> [(datetime.date, {str: float})]
 
 
 def _response_times_sum_by_day(chat: data.Chat) -> [(datetime.date, {str: (int, float)})]:
-    """
-    This function returns for each day: {responder: (sum of response times, response count)}.
+    """This function returns for each day: {responder: (sum of response times, response count)}.
     Ensures that only the dates and participants with responses are added to the list.
     May return None if there were no responses in the chat
     """
@@ -637,9 +686,34 @@ def _response_times_sum_by_day(chat: data.Chat) -> [(datetime.date, {str: (int, 
 """
 
 
-def message_count_per_participant_by_day(chat: data.Chat) -> {str: (datetime.date, int)}:
+def message_count_monthly(chat: data.Chat) -> {datetime.date: int}:
+    """Returns the message counts for each month in the format {month: count}
     """
-    Returns for each participant how many messages (s)he sent on each day from the start of the conversation
+    months = all_months(chat)
+    months.append(months[len(months) - 1] + datetime.timedelta(days=33))  # add an extra date for messages after last dt
+    messages = emoji_messages(chat)
+
+    # We go through the months and while the messages's date is smaller than the current month we add it to a counter
+    # msg_at represents where we are in the messages list so we don't have to start over each time.
+    output: {datetime.date: int} = {}
+    msg_at = 0
+    for month_at in range(1, len(months)):
+        month = months[month_at]  # we are currently adding to counter till this month
+        counter: int = 0
+
+        # we go through the messages
+        while msg_at < len(messages) and messages[msg_at].date.date() < month:
+            counter += 1
+            msg_at += 1
+
+        # we reached the end of the messages that are before the current month
+        output[months[month_at - 1]] = counter
+
+    return output
+
+
+def message_count_per_participant_by_day(chat: data.Chat) -> {str: (datetime.date, int)}:
+    """Returns for each participant how many messages (s)he sent on each day from the start of the conversation
     till today.
     """
     # this stores for each day how many messages were sent by each participant
@@ -649,8 +723,7 @@ def message_count_per_participant_by_day(chat: data.Chat) -> {str: (datetime.dat
 
 
 def message_by_day(chat: data.Chat) -> [(datetime.date, {str: int})]:
-    """
-    This function returns day by day how many messages were exchanged from each participant
+    """This function returns day by day how many messages were exchanged from each participant
     :param chat: The chat to analyze
     :return: A list of tuples of dates and count data stored in order
     """
@@ -678,8 +751,7 @@ def message_by_day(chat: data.Chat) -> [(datetime.date, {str: int})]:
 
 
 def message_count(chat: data.Chat) -> {str: int}:
-    """
-    Returns the message count for each participant in the given chat
+    """Returns the message count for each participant in the given chat
     :param chat: Which conversation to analyze
     :return: A dictionary of { "participant": count }
     """
@@ -703,8 +775,7 @@ def message_count(chat: data.Chat) -> {str: int}:
 
 
 def all_days(chat: data.Chat) -> [datetime.date]:
-    """
-    Returns all days in a list between the start of conversation and today.
+    """Returns all days in a list between the start of conversation and today.
     May return None if there were no active dates
     """
     # get the start and end dates
@@ -719,8 +790,7 @@ def all_days(chat: data.Chat) -> [datetime.date]:
 
 
 def all_months(chat: data.Chat) -> [datetime.date]:
-    """
-    Returns all months in a list between the start of the conversation and today
+    """Returns all months in a list between the start of the conversation and today
     May return None if there were no active dates
     """
     date_btwn = date_between(chat)
@@ -742,15 +812,13 @@ def all_months(chat: data.Chat) -> [datetime.date]:
 
 
 def get_from_to_date(chat: data.Chat, from_date: datetime.date, to_date: datetime.date) -> [data.Message]:
-    """
-    Returns messages inside the given from and till date. Inclusive on both sides
+    """Returns messages inside the given from and till date. Inclusive on both sides
     """
     return list(filter(lambda msg: from_date <= msg.date.date() <= to_date, chat.messages))
 
 
 def active_dates(chat: data.Chat) -> [datetime.date]:
-    """
-    Returns on which dates the chat was active.
+    """Returns on which dates the chat was active.
     May return None if there were no active dates
     """
     output: [datetime.date] = []
@@ -774,8 +842,7 @@ def active_dates(chat: data.Chat) -> [datetime.date]:
 
 
 def date_between(chat: data.Chat) -> (datetime.datetime, datetime.datetime):
-    """
-    Returns between what dates the conversation went on. May return None if there were no messages in the chat
+    """Returns between what dates the conversation went on. May return None if there were no messages in the chat
     """
     msgordered: [data.Message] = chat.messages
 
@@ -791,9 +858,86 @@ def date_between(chat: data.Chat) -> (datetime.datetime, datetime.datetime):
 """
 
 
-def get_messages_only_by(chat: data.Chat, participants: [str]) -> data.Chat:
+def share_count_per_participant(chat: data.Chat) -> {str: int}:
+    """Returns how many shares each participant sent
     """
-    Returns messages only by the participants that are given. The names are checked in lower case ascii form
+    # output and output init
+    output: {str: int} = {}
+    for participant in chat.participants:
+        output[participant.name] = 0
+
+    # count how many shares each participant sent
+    for msg in chat.messages:
+        if msg.has_share:
+            output[msg.sender] += msg.share_count
+
+    return output
+
+
+def gif_count_per_participant(chat: data.Chat) -> {str: int}:
+    """Returns how many gifs each participant sent
+    """
+    # output and output init
+    output: {str: int} = {}
+    for participant in chat.participants:
+        output[participant.name] = 0
+
+    # count how many gifs each participant sent
+    for msg in chat.messages:
+        if msg.has_gif:
+            output[msg.sender] += msg.gif_count
+
+    return output
+
+
+def photo_count_per_participant(chat: data.Chat) -> {str: int}:
+    """Returns how many photos each participant sent
+    """
+    # output and output init
+    output: {str: int} = {}
+    for participant in chat.participants:
+        output[participant.name] = 0
+
+    # count how many photos each participant sent
+    for msg in chat.messages:
+        if msg.has_photo:
+            output[msg.sender] += msg.photo_count
+
+    return output
+
+
+def unique_word_count_per_participant(chat: data.Chat) -> {str: [(str, int)]}:
+    """For each participant it returns a list of all the words that participant used and how many times it was used.
+    Format is {participant: [word, count]}
+    """
+    # where output will be stored (prepare it as well)
+    # for now it's in a different format, because this way it will be easier to add words
+    output: {str: {str, int}} = {}
+    for participant in chat.participants:
+        output[participant.name] = {}
+    
+    # go through the messages that are not special and do not contain emojis
+    for msg in chat.messages:
+        if not msg.is_special_message() and not msg.contains_emoji():
+            # add one to each word counter
+            for word in msg.lower_case_ascii_content.split():
+                # remove the special characters
+                without_special_characters = ''.join(e for e in word if e.isalnum())
+
+                if without_special_characters != "":
+                    # add one to this word without special characters
+                    output[msg.sender][without_special_characters] = \
+                        output[msg.sender].get(without_special_characters, 0) + 1
+    
+    # map to the correct output format
+    return {
+        name: [(word, output[name][word]) for word in output[name]]
+        for name in output
+    }
+
+
+def get_messages_only_by(chat: data.Chat, participants: [str]) -> data.Chat:
+    """Returns messages only by the participants that are given. The names are checked in lower case ascii form
     and if any of the given participant's name is a substring of any of the names given it returns that participant.
     """
     new_chat = data.Chat(chat.msg_folder_path, chat.media_folder_path, chat.name)
@@ -823,8 +967,7 @@ def get_messages_only_by(chat: data.Chat, participants: [str]) -> data.Chat:
 
 
 def _count_per_participant_per_day(chat: data.Chat, data: [(datetime.date, {str: int})]) -> {str: (datetime.date, int)}:
-    """
-    Returns for each participant how many of the data (s)he had on each day from the start of the conversation
+    """Returns for each participant how many of the data (s)he had on each day from the start of the conversation
     till today. It sums them together. It changes how the data is stored.
     :param data: [(on what day, {participantName, dataCount}]
     :return: {participantName: (date, count)}

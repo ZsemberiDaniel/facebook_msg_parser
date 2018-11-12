@@ -1,7 +1,7 @@
 from test.view.view_test import ViewTests
 
 from data import data
-from definitions import console_manager
+from view.console.console_manager import console_manager
 
 
 class EmojiTests(ViewTests):
@@ -23,11 +23,35 @@ class EmojiTests(ViewTests):
                 self.assertGreaterEqual(10, len(result[participant]),
                                         "top -c 10 command should return at least 10 emojis even for " + participant)
 
+            # top -t
+            result = console_manager._curr_console.process_command("top -t")["emotions_per_participant"]
+            for participant in result:
+                self.assertGreaterEqual(5, len(result[participant]),
+                                        "Simple top -t command should return at least 5 emotions even for " + participant)
+
+            # top -t -c 10
+            result = console_manager._curr_console.process_command("top -t -c 10")["emotions_per_participant"]
+            for participant in result:
+                self.assertGreaterEqual(10, len(result[participant]),
+                                        "Simple top -t command should return at least 10 emotions even for " + participant)
+
             self.quit_current_console(chat)
 
-    # for now this does not need to be implemented
     def test_overtime(self):
-        pass
+        for chat in self.chats:
+            self.enter_current_console(chat)
+
+            # we can't really test these because they are returned as strings, so we can only check that they really do
+            # run, and don't throw errors
+            # overtime -m
+            result = console_manager._process_command("overtime -m")["output_string"]
+            self.assertIsNotNone(result, "Overtime command failed!")
+
+            # overtime -t -m
+            result = console_manager._process_command("overtime -t -m")["output_string"]
+            self.assertIsNotNone(result, "Overtime command failed!")
+
+            self.quit_current_console(chat)
 
     def enter_current_console(self, chat: data.Chat):
         console_manager._curr_console.process_command("c " + chat.name)

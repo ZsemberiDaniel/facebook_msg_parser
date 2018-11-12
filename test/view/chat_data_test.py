@@ -11,7 +11,8 @@ import random
 
 from controller import data_visualizer
 from data import data
-from definitions import console_manager, ROOT_DIR
+from definitions import ROOT_DIR
+from view.console.console_manager import console_manager
 from test.view.view_test import ViewTests
 from test.misc import get_random_participant_cmd_str
 
@@ -140,7 +141,7 @@ class ChatDataTests(ViewTests):
                 # PARTICIPANT filter
 
                 # get new random data
-                to_append, needs_to_be_in_result = get_random_participant_cmd_str()
+                to_append, needs_to_be_in_result = get_random_participant_cmd_str(chat)
 
                 # apply command
                 new_chat = console_manager._process_command("f -p " + to_append)["chat"]
@@ -418,6 +419,54 @@ class ChatDataTests(ViewTests):
             # search query omitted
             result = console_manager._curr_console.process_command("search")["chat"]
             self.assertEqual(chat.messages, result.messages, "Omitting query in search failed!")
+
+            self.quit_current_console(chat)
+
+    def test_title(self):
+        for chat in self.chats:
+            self.enter_current_console(chat)
+
+            # swap to this chat because it contains the added data as well
+            chat = console_manager._curr_console.chat
+
+            # titles
+            result = console_manager._process_command("titles")["titles"]
+            for category, titles in result:
+                self.assertGreaterEqual(5, len(titles), "The number of titles returned should be maximum 5 by default!")
+
+            # titles -c 7
+            result = console_manager._process_command("titles -c 7")["titles"]
+            for category, titles in result:
+                self.assertGreaterEqual(7, len(titles), "The number of titles returned should be maximum 7!")
+
+            # titles -c
+            result = console_manager._process_command("titles -c").get("output-string", None)
+            self.assertIsNone(result, "Result should be {}, because count was not given!")
+
+            # titles -m -c
+            result = console_manager._process_command("titles -m -c").get("output-string", None)
+            self.assertIsNone(result, "Result should be {}, because count was not given!")
+
+            # titles -p
+            result = console_manager._process_command("titles -p")["titles"]
+            self.assertEqual(["Titles for people"], list(map(lambda t: t[0], result)),
+                             "There should be exactly one category this time (for people)!")
+            for category, titles in result:
+                self.assertGreaterEqual(5, len(titles), "The number of titles returned should be maximum 5!")
+
+            # titles -p -m -c 9
+            result = console_manager._process_command("titles -p -m -c 9")["titles"]
+            self.assertEqual(["Titles for people", "Titles for months"], list(map(lambda t: t[0], result)),
+                             "There should be exactly two category this time (for people)!")
+            for category, titles in result:
+                self.assertGreaterEqual(9, len(titles), "The number of titles returned should be maximum 9!")
+
+            # titles -m
+            result = console_manager._process_command("titles -m")["titles"]
+            self.assertEqual(["Titles for months"], list(map(lambda t: t[0], result)),
+                             "There should be exactly one category this time (for people)!")
+            for category, titles in result:
+                self.assertGreaterEqual(5, len(titles), "The number of titles returned should be maximum 5!")
 
             self.quit_current_console(chat)
 

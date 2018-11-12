@@ -1,15 +1,17 @@
 from data import data
 from view import markov_text_input
 from view import emoji_analyzer_text_input
-from view import console_input as con_inp
+from view.commands import chat_filterable
+from view.console import console_input as con_inp
+from view.console.console_manager import console_manager
 from controller import chat_analyzer
 from controller import data_visualizer
-from definitions import console_manager
+from controller import title_analyzer
+
+import texttable as tt
+import unicodedata
 from pyfiglet import figlet_format
 from misc.texttable_misc import get_string_wrapped
-import texttable as tt
-import datetime
-import unicodedata
 from copy import deepcopy
 from colorama import Fore
 
@@ -26,23 +28,22 @@ class ChatCommandLine(con_inp.ConsoleInput):
         self.command_message_count = con_inp.ConsoleCommand(
             ["count"],
             lambda cmd_line, switches, kwargs: cmd_line.print_message_count(kwargs["chat"], switches),
-            lambda: ChatCommandLine.help_msg_count()
+            lambda: ChatCommandLine.help_msg_count(),
+            lambda switches, word: self.auto_complete_msg_count(switches, word)
         )
         self.command_chart = con_inp.ConsoleCommand(
             ["chart", "c"],
             lambda cmd_line, switches, kwargs: cmd_line.chart(kwargs["chat"], switches),
-            lambda: ChatCommandLine.help_chart()
+            lambda: ChatCommandLine.help_chart(),
+            lambda switches, word: self.auto_complete_chart(switches, word)
         )
         self.command_emojis = con_inp.ConsoleCommand(
             ["emoji", "e"],
             lambda cmd_line, switches, kwargs: cmd_line.only_emojis(kwargs["chat"], switches),
-            lambda: ChatCommandLine.help_emoji()
+            lambda: ChatCommandLine.help_emoji(),
+            lambda switches, word: self.auto_complete_emoji(switches, word)
         )
-        self.commands_filter = con_inp.ConsoleCommand(
-            ["filter", "f"],
-            lambda cmd_line, switches, kwargs: cmd_line.filter_chat(kwargs["chat"], switches),
-            lambda: ChatCommandLine.help_filter()
-        )
+        self.commands_filter = chat_filterable.command_filter
         self.command_markov = con_inp.ConsoleCommand(
             ["markov", "m"],
             lambda cmd_line, switches, kwargs: cmd_line.enter_markov_command_line(kwargs["chat"], switches),
@@ -51,14 +52,21 @@ class ChatCommandLine(con_inp.ConsoleInput):
         self.command_search = con_inp.ConsoleCommand(
             ["search", "s"],
             lambda cmd_line, switches, kwargs: cmd_line.search(kwargs["chat"], switches),
-            lambda: ChatCommandLine.help_search()
+            lambda: ChatCommandLine.help_search(),
+            lambda switches, word: self.auto_complete_search(switches, word)
+        )
+        self.command_title = con_inp.ConsoleCommand(
+            ["titles", "title", "tit", "t"],
+            lambda cmd_line, switches, kwargs: cmd_line.titles(kwargs["chat"], switches),
+            lambda: ChatCommandLine.help_titles(),
+            lambda switches, word: self.auto_complete_titles(switches, word)
         )
 
         self.chat = chat
         self.command_line_name = "chat command line"
 
         self.add_commands(self.command_basic_data, self.command_message_count, self.command_chart, self.commands_filter,
-                          self.command_markov, self.command_search, self.command_emojis)
+                          self.command_markov, self.command_search, self.command_emojis, self.command_title)
 
     def process_command(self, commands, **kwargs):
         return super().process_command(commands, chat=deepcopy(self.chat))
@@ -66,6 +74,46 @@ class ChatCommandLine(con_inp.ConsoleInput):
     def print_welcome_message(self):
         print("\n" + figlet_format(unicodedata.normalize("NFD", self.chat.name).encode("ASCII", "ignore")
                                    .decode("UTF-8"), font="mini"))
+
+    def titles(self, chat: data.Chat, switches: [str]):
+        # all the title categories
+        category_switches = ["-p", "-m"]
+        # the categories that the user requested
+        needed_categories = [s for s in category_switches if s in switches]
+
+        # if the user did no request any categories then all categories are selected
+        if len(needed_categories) == 0:
+            needed_categories = category_switches
+
+        # how many titles per categories to return
+        count = 5
+
+        # count switch
+        if "-c" in switches:
+            count_switch_at = switches.index("-c")
+
+            # no number at end
+            if count_switch_at + 1 >= len(switches):
+                print(Fore.RED + "You need to provide a number for -c in top!" + Fore.RESET)
+                return {}
+
+            try:
+                count = int(switches[count_switch_at + 1])
+            except ValueError:
+                print(Fore.RED + "A number needs to be provided for -c in top!" + Fore.RESET)
+                return {}
+
+        # this is where we'll collect all the titles for the different categories
+        # each category string contains tuples of (title, person/month/etc.)
+        all_titles: [str, [(str, str)]] = []
+
+        # people category
+        if "-p" in needed_categories:
+            all_titles.append(("Titles for people", title_analyzer.best_person_titles_for_chat(chat, count)))
+        if "-m" in needed_categories:
+            all_titles.append(("Titles for months", title_analyzer.best_month_titles_for_chat(chat, count)))
+
+        return {"titles": all_titles}
 
     def only_emojis(self, chat: data.Chat, switches: [str]):
         new_chat = chat
@@ -75,7 +123,7 @@ class ChatCommandLine(con_inp.ConsoleInput):
             console_manager.add_console(emoji_analyzer_text_input.EmojiAnalyzerConsole(new_chat))
             return
 
-        if "-onlyem" in switches or "-o" in switches:
+        if "-o" in switches:
             new_chat.messages = chat_analyzer.emoji_messages(chat)
         else:
             new_chat.messages = chat_analyzer.emoji_whole_messages(chat)
@@ -210,7 +258,7 @@ class ChatCommandLine(con_inp.ConsoleInput):
         do_all_plot = len(switches) == 0
 
         # go through all switches and check for ones that are chart switches
-        for switch in switches:
+        for switch in (execute_for_switch if do_all_plot else switches):
             if do_all_plot or switch in execute_for_switch:
                 # user may have overridden -sa for this chart
                 overridden_size = user_override_size.get(switch, None)
@@ -248,69 +296,31 @@ class ChatCommandLine(con_inp.ConsoleInput):
 
         return {"output-string": out, "chat": None}
 
-    def filter_chat(self, chat: data.Chat, switches: [str]) -> {}:
-        # FILTER DATE
-        if "-d" in switches:
-            date_in_array = switches.index("-d")
-
-            # from date
-            if len(switches) <= date_in_array + 1 or switches[date_in_array + 1] == "_":  # the from date was omitted
-                from_date = datetime.date(1990, 1, 1)
-            else:
-                try:
-                    f_year, f_month, f_day = map(int, switches[date_in_array + 1].split("."))
-                except ValueError:
-                    print(Fore.RED + "Starting month should be in format YYYY.MM.DD!" + Fore.RESET)
-
-                    chat.messages = []
-                    return {"chat": chat}
-
-                from_date = datetime.date(f_year, f_month, f_day)
-
-            # to date
-            # the to date was omitted
-            if len(switches) <= date_in_array + 2 or switches[date_in_array + 2] == "_" or \
-                    switches[date_in_array + 2].startswith("-"):  # another switch
-                to_date = datetime.date.today()
-            else:
-                try:
-                    t_year, t_month, t_day = map(int, switches[date_in_array + 2].split("."))
-                except ValueError:
-                    print(Fore.RED + "Ending date should be in format YYYY.MM.DD!" + Fore.RESET)
-
-                    chat.messages = []
-                    return {"chat": chat}
-
-                to_date = datetime.date(t_year, t_month, t_day)
-
-            chat.messages = chat_analyzer.get_from_to_date(chat, from_date, to_date)
-
-        # FILTER
-        if "-p" in switches:
-            participant_in_array = switches.index("-p")
-
-            # if there was no parameter given after the -p switch then there are no participants to filter ->
-            # will result in []. If there were names given split them by ,
-            to_filter_participants = [] if len(switches) <= participant_in_array + 1 else \
-                switches[participant_in_array + 1].split(",")
-
-            if len(to_filter_participants) > 0:
-                chat = chat_analyzer.get_messages_only_by(chat, to_filter_participants)
-
-        return {"chat": chat}
-
     def _get_write_string(self, kwargs, switches: [str]):
         chat: data.Chat = kwargs.get("chat", None)
 
-        if chat is not None:
+        if "output-string" in kwargs:
+            out = kwargs.pop("output-string")
+            return out
+        elif "titles" in kwargs:
+            titles = kwargs["titles"]
+            out = ""
+
+            # the input comes in the form of [title_category, [(title, winner)]]
+            for category, category_titles in titles:
+                out += category + "\n"
+
+                for title, winner in category_titles:
+                   out += "\t" + title + " is " + str(winner) + "\n"
+
+            return out
+        elif chat is not None:
             # what we want to write
             output = ""
             for msg in chat.messages:
                 output += msg.str_for_user() + "\n"
 
             return output
-        elif "output-string" in kwargs:
-            return kwargs["output-string"]
         else:
             return super()._get_write_string(kwargs, switches)
 
@@ -363,7 +373,7 @@ class ChatCommandLine(con_inp.ConsoleInput):
         response_count = chat_analyzer.response_count(chat)
         avg_response_time_day = chat_analyzer.avg_response_time_no_overnight(chat) or {}
         avg_response_time = chat_analyzer.avg_response_time(chat) or {}
-        sum_character_count = chat_analyzer.character_count(chat)
+        sum_character_count = chat_analyzer.character_count_per_participant(chat)
         avg_character_count = chat_analyzer.avg_character_count(chat)
         emojis_count = chat_analyzer.emoji_strs_count_per_participant(chat)
         most_used_emoji = chat_analyzer.emoji_strs_top_per_participant(chat)
@@ -422,11 +432,41 @@ class ChatCommandLine(con_inp.ConsoleInput):
         return {"output-string": out}
 
     @staticmethod
+    def help_titles():
+        print("""You can write out the top funny titles with \t title
+        \t (If you omit which titles you want, you'll get all categories)
+        \t You can get the titles for people with \t -p
+        \t You can get the titles for months with \t -m
+        \t You cen specify how many titles you want per category with \t -c [count]""")
+
+    def auto_complete_titles(self, switches_before: [str], word: str) -> [str]:
+        not_been_switch = [s for s in ["-p", "-m", "-c"] if s not in switches_before]
+
+        if word.startswith("-"):
+            return [s[1:] for s in not_been_switch]
+        elif len(switches_before) == 0:
+            return not_been_switch
+        else:
+            if switches_before[-1] == "-c":
+                return ["Count of titles", "[count]"]
+            elif word == "":
+                return not_been_switch
+            else:
+                return []
+
+    @staticmethod
     def help_emoji():
         print("""Get only the messages containing emojis \t emoji
         \t You can enter emoji analyzer console with \t -a
-        \t You can remove non-emojis from messages with \t -onlyem or -o
+        \t You can remove non-emojis from messages with \t -o
         """)
+
+    def auto_complete_emoji(self, switches_before: [str], word: str) -> [str]:
+        if word == "" or word == "-":
+            # filter out the ones the user have used
+            return [switch[len(word):] for switch in ["-a", "-o"] if switch not in switches_before]
+        else:
+            return []
 
     @staticmethod
     def help_basic():
@@ -439,18 +479,11 @@ class ChatCommandLine(con_inp.ConsoleInput):
         print("Write out how many messages there are with \t count")
         print("\t You can specify to write out separately for each participant with \t -p")
 
-    @staticmethod
-    def help_filter():
-        # filter
-        print("Filter with \t filter")
-        print("\t You can define a from and to date with \t -d [year.month.day] [year.month.day]")
-        print("\t\t If no to date is given (or _ is used) then today will be the to date.")
-        print("\t\t You can omit the from date with '_'. If no from date is given then it will be written out from" +
-              "the start of conversation.")
-        print("\t You can filter for participant(s) with \t -p participant1(,participant2)(,participant3)(...),")
-        print("\t\t The names are checked with them being converted to lower case ASCII characters and as a\n"
-              "\t\t substring of the real names of participants.")
-        print("\t\t If more names are given separated by commas then the logical operator between them is or.")
+    def auto_complete_msg_count(self, switches_before: [str], word: str) -> [str]:
+        if word == "" or word == "-":
+            return ["-p"]
+        else:
+            return []
 
     @staticmethod
     def help_search():
@@ -460,6 +493,26 @@ class ChatCommandLine(con_inp.ConsoleInput):
         print("\t match whole world in -w mode \t\t -h")
         print("\t add a regex with \t\t -r")
         print("\t ignore cases with \t\t -i")
+
+    def auto_complete_search(self, switches_before: [str], word: str) -> [str]:
+        switches = ["-w", "-h", "-r", "-i"]
+        just_switches_before = all(map(lambda s: s.startswith("-"), switches_before))
+
+        # we can add another switch
+        if just_switches_before and word.startswith("-"):
+            # return ones that have not been before and without the '-' because that would get autocompleted
+            # again
+            return [switch[1:] for switch in switches if switch not in switches_before]
+        elif len(switches_before) == 0:
+            return [switch for switch in switches if switch not in switches_before] + ["search_expression"]
+        else:
+            possible_switches = [switch for switch in switches if switch not in switches_before]
+
+            # no more possible switches
+            if len(possible_switches) == 0:
+                return ["Search expression", "required"]
+            else:
+                return ["-"]
 
     @staticmethod
     def help_markov():
@@ -485,3 +538,37 @@ class ChatCommandLine(con_inp.ConsoleInput):
         \t\t\t Here the -m and -c will be 2000x1000 but the -em will be 1000x2000
         \t For emoji charting:
         \t\t Specify how many emojis per row with \t -r [value]""")
+
+    def auto_complete_chart(self, switches_before: [str], word: str) -> [str]:
+        def has_not_been(*switches: str) -> [str]:
+            return [s for s in switches if s not in switches_before]
+
+        switches_without_s = ["-e", "-ey", "-m", "-c", "-d", "-em", "-sa", "-r"]
+
+        def get_next_possible(before_switch: str) -> [str]:
+            """What kind of switches we can use after the given one
+            :param before_switch: The switch after which we want to use another one
+            """
+            if not before_switch.startswith("-"):
+                return has_not_been(*switches_without_s)
+            elif before_switch in ["-m", "-c", "-d", "-em", "-e", "-ey"]:
+                return has_not_been(*switches_without_s) + ["-s"]
+            elif before_switch == "-s" or before_switch == "-sa":
+                return ["Need to write ", "[width]", "or [width]x[height]"]
+            elif before_switch == "-r":
+                return ["Need to provide", "[emoji_per_row]"]
+
+        if len(switches_before) == 0:
+            if word.startswith("-"):
+                # remove '-'
+                return list(map(lambda s: s[1:], filter(lambda s: s.startswith(word), switches_without_s)))
+            else:
+                return switches_without_s
+        else:
+            if word.startswith("-"):
+                # we return the switches that start with '-' and then remove the '-'
+                return list(map(lambda s: s[1:],
+                            filter(lambda s: s.startswith(word), get_next_possible(switches_before[-1]))
+                ))
+            else:
+                return get_next_possible(switches_before[-1])
